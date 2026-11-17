@@ -1,0 +1,16 @@
+#!/bin/sh
+# AgentNotch hook for Claude Code.
+# Forwards the hook's JSON (stdin) to AgentNotch over its local Unix socket.
+# It never blocks or fails Claude: 1s timeout, no output, always exits 0.
+SOCK="$HOME/Library/Application Support/AgentNotch/agentnotch.sock"
+if [ ! -S "$SOCK" ]; then
+    cat >/dev/null 2>&1
+    exit 0
+fi
+/usr/bin/curl -s --max-time 1 --unix-socket "$SOCK" \
+    -H "Content-Type: application/json" \
+    -H "X-Term-Program: ${TERM_PROGRAM:-}" \
+    -H "X-Bundle-Id: ${__CFBundleIdentifier:-}" \
+    --data-binary @- \
+    http://localhost/v1/claude >/dev/null 2>&1
+exit 0
