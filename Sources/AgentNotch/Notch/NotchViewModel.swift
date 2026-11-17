@@ -59,6 +59,8 @@ final class NotchViewModel: ObservableObject {
     let hudEdgeInset: CGFloat = 14
     let peekRowHeight: CGFloat = 34
     let peekMinWidth: CGFloat = 380
+    let lyricRowHeight: CGFloat = 36
+    let lyricRowWidth: CGFloat = 460
     let alertRowHeight: CGFloat = 40
     let alertMinWidth: CGFloat = 440
 
@@ -69,11 +71,16 @@ final class NotchViewModel: ObservableObject {
             return CGSize(width: base, height: notchSize.height)
         case .hud:
             return CGSize(width: base + hudWingWidth * 2, height: notchSize.height)
-        case .nowPlaying(let peek):
+        case .nowPlaying(let row):
             let width = base + mediaWingWidth * 2
-            return peek
-                ? CGSize(width: max(width, peekMinWidth), height: notchSize.height + peekRowHeight)
-                : CGSize(width: width, height: notchSize.height)
+            switch row {
+            case .none:
+                return CGSize(width: width, height: notchSize.height)
+            case .peek:
+                return CGSize(width: max(width, peekMinWidth), height: notchSize.height + peekRowHeight)
+            case .lyric:
+                return CGSize(width: max(width, lyricRowWidth), height: notchSize.height + lyricRowHeight)
+            }
         case .alert:
             return CGSize(width: max(base + mediaWingWidth * 2, alertMinWidth),
                           height: notchSize.height + alertRowHeight)
@@ -94,7 +101,8 @@ final class NotchViewModel: ObservableObject {
 
     func bottomRadius(for activity: ClosedActivity) -> CGFloat {
         if isOpen { return openBottomRadius }
-        if case .nowPlaying(peek: true) = activity { return 18 }
+        if case .nowPlaying(row: .peek) = activity { return 18 }
+        if case .nowPlaying(row: .lyric) = activity { return 18 }
         if case .alert = activity { return 20 }
         return closedBottomRadius
     }

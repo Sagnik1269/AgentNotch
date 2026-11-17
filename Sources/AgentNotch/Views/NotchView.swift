@@ -9,10 +9,11 @@ struct NotchView: View {
     @ObservedObject private var media = NowPlayingModel.shared
     @ObservedObject private var alerts = AlertCenter.shared
     @ObservedObject private var agents = AgentsModel.shared
+    @ObservedObject private var lyrics = LyricsModel.shared
 
     var body: some View {
         let activity = ClosedActivity.current(settings: settings, hud: hud, media: media,
-                                              alerts: alerts, agents: agents)
+                                              alerts: alerts, agents: agents, lyrics: lyrics)
         let size = vm.shapeSize(for: activity)
         let shape = NotchShape(topRadius: vm.topRadius, bottomRadius: vm.bottomRadius(for: activity))
 
@@ -68,9 +69,13 @@ struct ClosedActivityView: View {
             }
             .frame(height: vm.notchSize.height)
 
-            if case .nowPlaying(peek: true) = activity {
+            if case .nowPlaying(row: .peek) = activity {
                 peekRow
                     .frame(height: vm.peekRowHeight)
+                    .transition(.opacity)
+            } else if case .nowPlaying(row: .lyric) = activity {
+                LyricLineRow(accent: Color(nsColor: media.accentColor))
+                    .frame(height: vm.lyricRowHeight)
                     .transition(.opacity)
             } else if case .alert(let alert) = activity {
                 alertRow(alert)
@@ -188,6 +193,44 @@ struct ClosedActivityView: View {
         .padding(.horizontal, 18)
         .padding(.bottom, 4)
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// The current lyric line under the closed notch. Lines cross-fade and slide up as they change.
+struct LyricLineRow: View {
+    let accent: Color
+    @ObservedObject private var lyrics = LyricsModel.shared
+
+    var body: some View {
+        let line = lyrics.currentLine
+        let text = line?.text ?? ""
+        ZStack {
+            Group {
+                if text.isEmpty {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(accent.opacity(0.8))
+                        .symbolEffect(.pulse, options: .repeating, isActive: true)
+                } else {
+                    Text(text)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .truncationMode(.tail)
+                }
+            }
+            .id(lyrics.currentIndex ?? -1)
+            .transition(.asymmetric(
+                insertion: .opacity.combined(with: .offset(y: 8)),
+                removal: .opacity.combined(with: .offset(y: -8))
+            ))
+        }
+        .padding(.horizontal, 22)
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .animation(.easeOut(duration: 0.28), value: lyrics.currentIndex)
     }
 }
 

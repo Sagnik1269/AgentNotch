@@ -3,51 +3,99 @@ import SwiftUI
 /// Full player for the Media tab.
 struct MediaTabView: View {
     @ObservedObject private var media = NowPlayingModel.shared
+    @ObservedObject private var settings = AppSettings.shared
+    @AppStorage("mediaTabShowsLyrics") private var showLyrics = false
 
     var body: some View {
         if media.hasMedia {
-            HStack(spacing: 16) {
-                ZStack(alignment: .bottomTrailing) {
-                    ArtworkView(image: media.artwork, side: 112, cornerRadius: 14)
-                        .shadow(color: Color(nsColor: media.accentColor).opacity(0.35), radius: 14)
-                    if let icon = media.appIcon {
-                        Image(nsImage: icon)
-                            .resizable()
-                            .frame(width: 26, height: 26)
-                            .offset(x: 6, y: 6)
-                            .help(media.appName ?? "")
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(media.title)
-                                .font(.system(size: 15, weight: .semibold))
-                                .lineLimit(1)
-                            Text(media.subtitle)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.55))
-                                .lineLimit(1)
-                        }
-                        Spacer(minLength: 8)
-                        VisualizerBars(color: Color(nsColor: media.accentColor))
-                            .frame(width: 22, height: 16)
-                    }
-
-                    Scrubber()
-
-                    PlaybackControls(size: .large)
-                        .frame(maxWidth: .infinity)
-                }
-                .frame(maxWidth: .infinity)
+            if showLyrics && settings.liveLyrics {
+                lyricsLayout
+            } else {
+                playerLayout
             }
-            .padding(.horizontal, 6)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             PlaceholderTabView(icon: "music.note", title: "Nothing playing",
                                detail: "Play something in Music, Spotify, a browser or any media app.")
         }
+    }
+
+    private var accent: Color { Color(nsColor: media.accentColor) }
+
+    private var playerLayout: some View {
+        HStack(spacing: 16) {
+            ZStack(alignment: .bottomTrailing) {
+                ArtworkView(image: media.artwork, side: 112, cornerRadius: 14)
+                    .shadow(color: accent.opacity(0.35), radius: 14)
+                if let icon = media.appIcon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 26, height: 26)
+                        .offset(x: 6, y: 6)
+                        .help(media.appName ?? "")
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(media.title)
+                            .font(.system(size: 15, weight: .semibold))
+                            .lineLimit(1)
+                        Text(media.subtitle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    VisualizerBars(color: accent)
+                        .frame(width: 22, height: 16)
+                    LyricsToggleButton(showing: $showLyrics)
+                }
+
+                Scrubber()
+
+                PlaybackControls(size: .large)
+                    .frame(maxWidth: .infinity)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Compact player on the left, scrolling lyrics on the right.
+    private var lyricsLayout: some View {
+        HStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    ArtworkView(image: media.artwork, side: 52, cornerRadius: 9)
+                        .shadow(color: accent.opacity(0.35), radius: 10)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(media.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .lineLimit(2)
+                        Text(media.artist)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .lineLimit(1)
+                    }
+                }
+                Scrubber()
+                HStack {
+                    PlaybackControls(size: .small)
+                    Spacer(minLength: 0)
+                    LyricsToggleButton(showing: $showLyrics)
+                }
+                Text("Lyrics from LRCLIB")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.3))
+            }
+            .frame(width: 190)
+
+            LyricsPanel(accent: accent)
+        }
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

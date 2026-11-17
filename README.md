@@ -60,6 +60,16 @@ MediaRemote only serves now-playing info to Apple-signed processes on macOS 15.4
 `Helpers/NowPlayingBridge` is a small dylib loaded into `/usr/bin/perl` (which qualifies); it streams
 JSON lines on stdout and takes `play/pause/toggle/next/previous/seek <s>` commands on stdin.
 
+### Live lyrics
+
+Off by default. Turn it on in **Settings → Media** or with the quote button in the Media tab.
+Lyrics come from [LRCLIB](https://lrclib.net) (free, open, no account). Only the playing song's
+title, artist, album and length are sent, once per song; hits and misses are cached in
+`~/Library/Application Support/AgentNotch/Lyrics`. Video-site titles ("Artist – Song (Official Video)")
+are cleaned before lookup. The current line shows under the closed notch and in a scrolling view in
+the Media tab (click a line to seek). Line changes are scheduled for the exact moment the next
+line starts rather than polled. A ±2 s timing nudge in Settings fixes tracks that run early or late.
+
 ## Layout
 
 ```
@@ -76,6 +86,7 @@ Sources/AgentNotch/
 1. ✅ Shell: overlay, hover/click expand, tabs, multi-display + virtual notch, fullscreen hiding, settings, launch at login
 2. ✅ Media (now playing, controls, scrubber, live activity, track peek) + volume/brightness HUD replacement
 3. ✅ Dev layer: Claude Code sessions, command-finished alerts, local event API, ports, CI
+   - ✅ Live lyrics (LRCLIB, time-synced, opt-in)
 4. Shelf, calendar, battery/Bluetooth
 5. Clipboard, notes, timers, mirror, polish
 

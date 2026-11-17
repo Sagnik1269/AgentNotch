@@ -34,6 +34,11 @@ final class AppSettings: ObservableObject {
     @Published var showNowPlayingActivity: Bool { didSet { defaults.set(showNowPlayingActivity, forKey: Keys.showNowPlayingActivity) } }
     @Published var showTrackPeek: Bool { didSet { defaults.set(showTrackPeek, forKey: Keys.showTrackPeek) } }
     @Published var showVisualizer: Bool { didSet { defaults.set(showVisualizer, forKey: Keys.showVisualizer) } }
+    /// Off by default: turning it on sends the current track's title/artist to lrclib.net.
+    @Published var liveLyrics: Bool { didSet { defaults.set(liveLyrics, forKey: Keys.liveLyrics) } }
+    @Published var lyricsInClosedNotch: Bool { didSet { defaults.set(lyricsInClosedNotch, forKey: Keys.lyricsInClosedNotch) } }
+    /// Seconds added to the playback position when picking the lyric line (positive = earlier lines).
+    @Published var lyricsOffset: Double { didSet { defaults.set(lyricsOffset, forKey: Keys.lyricsOffset) } }
 
     // HUD
     @Published var replaceSystemHUD: Bool { didSet { defaults.set(replaceSystemHUD, forKey: Keys.replaceSystemHUD) } }
@@ -57,6 +62,9 @@ final class AppSettings: ObservableObject {
         static let showNowPlayingActivity = "showNowPlayingActivity"
         static let showTrackPeek = "showTrackPeek"
         static let showVisualizer = "showVisualizer"
+        static let liveLyrics = "liveLyrics"
+        static let lyricsInClosedNotch = "lyricsInClosedNotch"
+        static let lyricsOffset = "lyricsOffset"
         static let replaceSystemHUD = "replaceSystemHUD"
         static let commandAlertThreshold = "commandAlertThreshold"
         static let quietWhenFocused = "quietWhenFocused"
@@ -73,6 +81,9 @@ final class AppSettings: ObservableObject {
             Keys.showNowPlayingActivity: true,
             Keys.showTrackPeek: true,
             Keys.showVisualizer: true,
+            Keys.liveLyrics: false,
+            Keys.lyricsInClosedNotch: true,
+            Keys.lyricsOffset: 0.0,
             Keys.replaceSystemHUD: true,
             Keys.commandAlertThreshold: 10.0,
             Keys.quietWhenFocused: true,
@@ -86,6 +97,9 @@ final class AppSettings: ObservableObject {
         showNowPlayingActivity = defaults.bool(forKey: Keys.showNowPlayingActivity)
         showTrackPeek = defaults.bool(forKey: Keys.showTrackPeek)
         showVisualizer = defaults.bool(forKey: Keys.showVisualizer)
+        liveLyrics = defaults.bool(forKey: Keys.liveLyrics)
+        lyricsInClosedNotch = defaults.bool(forKey: Keys.lyricsInClosedNotch)
+        lyricsOffset = defaults.double(forKey: Keys.lyricsOffset)
         replaceSystemHUD = defaults.bool(forKey: Keys.replaceSystemHUD)
         commandAlertThreshold = defaults.double(forKey: Keys.commandAlertThreshold)
         quietWhenFocused = defaults.bool(forKey: Keys.quietWhenFocused)

@@ -112,10 +112,28 @@ struct SettingsView: View {
                 if settings.showVisualizer {
                     visualizerStatus
                 }
+                Toggle("Live lyrics", isOn: $settings.liveLyrics)
+                if settings.liveLyrics {
+                    Toggle("Show the current line in the closed notch", isOn: $settings.lyricsInClosedNotch)
+                        .disabled(!settings.showNowPlayingActivity)
+                    LabeledContent("Lyrics timing") {
+                        HStack(spacing: 8) {
+                            Text(settings.lyricsOffset == 0 ? "In sync"
+                                 : String(format: "%+.1f s %@", settings.lyricsOffset,
+                                          settings.lyricsOffset > 0 ? "earlier" : "later"))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                            Stepper("", value: $settings.lyricsOffset, in: -2...2, step: 0.1)
+                                .labelsHidden()
+                            Button("Reset") { settings.lyricsOffset = 0 }
+                                .disabled(settings.lyricsOffset == 0)
+                        }
+                    }
+                }
             } header: {
                 Text("Media")
             } footer: {
-                Text("The visualizer reads your Mac's audio output live (it's never recorded) and only while something is playing. If the bars stay flat, allow AgentNotch under Privacy & Security → Screen & System Audio Recording → System Audio Recording Only.")
+                Text("Live lyrics look up the playing song's title, artist, album and length on lrclib.net, once per song (results are cached on this Mac). Nothing is sent while it's off. The visualizer reads your Mac's audio output live (it's never recorded) and only while something is playing. If the bars stay flat, allow AgentNotch under Privacy & Security → Screen & System Audio Recording → System Audio Recording Only.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

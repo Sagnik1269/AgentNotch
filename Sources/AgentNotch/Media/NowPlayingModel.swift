@@ -21,6 +21,10 @@ final class NowPlayingModel: ObservableObject {
     /// True for a few seconds after the track changes, so the closed notch can preview it.
     @Published private(set) var isPeeking = false
 
+    /// Bumped whenever the track, play state or position changes (bridge update, seek, toggle),
+    /// so time-synced consumers like lyrics can re-anchor without polling.
+    @Published private(set) var timelineRevision = 0
+
     private var elapsedAtSample: Double = 0
     private var sampleDate = Date()
     private var rate: Double = 0
@@ -41,6 +45,9 @@ final class NowPlayingModel: ObservableObject {
     func start() { service.start() }
     func stop() { service.stop() }
 
+    /// Effective playback speed (0 while paused).
+    var playbackRate: Double { isPlaying ? max(rate, 0) : 0 }
+
     /// Elapsed time interpolated from the last sample while playing.
     func elapsed(at date: Date = Date()) -> Double {
         guard duration > 0 else { return 0 }
@@ -57,6 +64,7 @@ final class NowPlayingModel: ObservableObject {
         isPlaying.toggle()
         if isPlaying && rate == 0 { rate = 1 }
         service.send("toggle")
+        timelineRevision &+= 1
     }
 
     func next() { service.send("next") }
@@ -66,6 +74,7 @@ final class NowPlayingModel: ObservableObject {
         elapsedAtSample = min(max(seconds, 0), duration)
         sampleDate = Date()
         service.send(String(format: "seek %.3f", elapsedAtSample))
+        timelineRevision &+= 1
     }
 
     // MARK: - Updates
@@ -103,6 +112,7 @@ final class NowPlayingModel: ObservableObject {
         if trackChanged && !newTitle.isEmpty && isPlaying {
             peek()
         }
+        timelineRevision &+= 1
     }
 
     private func peek() {
