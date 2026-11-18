@@ -94,7 +94,7 @@ final class BluetoothModel: NSObject, ObservableObject {
         // Devices already connected at start are reported immediately: list them, don't announce.
         let announce = Date().timeIntervalSince(startedAt) > 3
         if let name = device.name {
-            upsert(Device(id: address, name: name, icon: Self.icon(for: device)))
+            upsert(Device(id: address, name: name, icon: Self.icon(for: device), levels: Self.levels(for: device)))
         }
         // Wait for the burst of connects to settle; by then the name and battery levels are known.
         pendingAnnounce[address]?.cancel()
@@ -156,16 +156,30 @@ final class BluetoothModel: NSObject, ObservableObject {
 
     // MARK: - Device details
 
+    /// Icon from the device name alone (also used for Bluetooth LE devices, which carry no class).
+    static func icon(forName rawName: String) -> String? {
+        let name = rawName.lowercased()
+        func has(_ words: String...) -> Bool { words.contains { name.contains($0) } }
+        if has("airpods max") { return "airpodsmax" }
+        if has("airpods pro") { return "airpodspro" }
+        if has("airpods") { return "airpods" }
+        if has("beats") { return "beats.headphones" }
+        if has("trackpad") { return "rectangle.and.hand.point.up.left" }
+        if has("mouse", "mx master", "mx anywhere", "mx ergo", "trackball", "mx vertical", "g pro", "viper", "deathadder") {
+            return "magicmouse"
+        }
+        if has("keyboard", "keys", "nuphy", "keychron", "halo", "air75", "air60", "k380", "k780", "logitech pop") {
+            return "keyboard"
+        }
+        if has("controller", "dualsense", "dualshock", "xbox", "joy-con", "8bitdo") { return "gamecontroller.fill" }
+        if has("headphones", "buds", "wh-", "wf-", "bose", "sony", "jabra", "galaxy buds") { return "headphones" }
+        if has("speaker", "jbl", "soundlink", "ue boom") { return "hifispeaker.fill" }
+        if has("pencil") { return "applepencil" }
+        return nil
+    }
+
     private static func icon(for device: IOBluetoothDevice) -> String {
-        let name = (device.name ?? "").lowercased()
-        if name.contains("airpods max") { return "airpodsmax" }
-        if name.contains("airpods pro") { return "airpodspro" }
-        if name.contains("airpods") { return "airpods" }
-        if name.contains("beats") { return "beats.headphones" }
-        if name.contains("keyboard") { return "keyboard" }
-        if name.contains("trackpad") { return "rectangle.and.hand.point.up.left" }
-        if name.contains("mouse") { return "magicmouse" }
-        if name.contains("controller") || name.contains("dualsense") || name.contains("xbox") { return "gamecontroller.fill" }
+        if let byName = icon(forName: device.name ?? "") { return byName }
         switch device.deviceClassMajor {
         case UInt32(kBluetoothDeviceClassMajorAudio): return "headphones"
         case UInt32(kBluetoothDeviceClassMajorPeripheral): return "keyboard"

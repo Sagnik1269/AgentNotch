@@ -24,7 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .map { $0 || $1 }
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { BluetoothModel.shared.setEnabled($0) }
+            .sink {
+                BluetoothModel.shared.setEnabled($0)
+                BLEBatteryReader.shared.setEnabled($0)
+            }
             .store(in: &cancellables)
         setUpHUD()
         setUpVisualizer()
