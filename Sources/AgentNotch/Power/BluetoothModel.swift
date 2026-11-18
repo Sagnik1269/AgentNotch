@@ -13,6 +13,7 @@ final class BluetoothModel: NSObject, ObservableObject {
         var name: String
         var icon: String
         var battery: String?    // e.g. "L 80% · R 82% · Case 60%" or "75%"
+        var shortBattery: String? // the lowest earbud, or the single level: "80%"
     }
 
     @Published private(set) var connected: [Device] = []
@@ -62,8 +63,9 @@ final class BluetoothModel: NSObject, ObservableObject {
                 guard let self else { return }
                 self.pendingAnnounce[address] = nil
                 guard device.isConnected(), let name = device.name, !name.isEmpty else { return }
+                let levels = Self.battery(for: device)
                 let entry = Device(id: address, name: name, icon: Self.icon(for: device),
-                                   battery: Self.battery(for: device))
+                                   battery: levels?.full, shortBattery: levels?.short)
                 self.upsert(entry)
                 guard announce, AppSettings.shared.bluetoothAlerts, self.shouldAnnounce(name, connected: true) else { return }
                 AlertCenter.shared.post(NotchAlert(icon: entry.icon, tint: .blue,
@@ -99,6 +101,11 @@ final class BluetoothModel: NSObject, ObservableObject {
         return true
     }
 
+    #if DEBUG
+    /// For off-screen layout checks only.
+    func previewSetConnected(_ devices: [Device]) { connected = devices }
+    #endif
+
     private func upsert(_ device: Device) {
         if let i = connected.firstIndex(where: { $0.id == device.id }) {
             connected[i] = device
@@ -130,18 +137,22 @@ final class BluetoothModel: NSObject, ObservableObject {
     /// AirPods-style per-bud levels via IOBluetoothDevice's battery properties (present on recent
     /// macOS, not in the public headers, so each is checked before use), else Apple HID devices'
     /// "BatteryPercent" from the IO registry.
-    private static func battery(for device: IOBluetoothDevice) -> String? {
+    private static func battery(for device: IOBluetoothDevice) -> (full: String, short: String)? {
         func level(_ key: String) -> Int? {
             guard device.responds(to: NSSelectorFromString(key)),
                   let n = device.value(forKey: key) as? NSNumber, n.intValue > 0 else { return nil }
             return n.intValue
         }
-        let parts = [("L", level("batteryPercentLeft")), ("R", level("batteryPercentRight")),
-                     ("Case", level("batteryPercentCase"))]
+        let left = level("batteryPercentLeft"), right = level("batteryPercentRight"), box = level("batteryPercentCase")
+        let parts = [("L", left), ("R", right), ("Case", box)]
             .compactMap { label, value in value.map { "\(label) \($0)%" } }
-        if !parts.isEmpty { return parts.joined(separator: " · ") }
-        if let single = level("batteryPercentSingle") { return "\(single)%" }
-        if let name = device.name, let hid = hidBattery(named: name) { return "\(hid)%" }
+        if !parts.isEmpty {
+            let buds = [left, right].compactMap { $0 }
+            let short = buds.min() ?? box!
+            return (parts.joined(separator: " · "), "\(short)%")
+        }
+        if let single = level("batteryPercentSingle") { return ("\(single)%", "\(single)%") }
+        if let name = device.name, let hid = hidBattery(named: name) { return ("\(hid)%", "\(hid)%") }
         return nil
     }
 

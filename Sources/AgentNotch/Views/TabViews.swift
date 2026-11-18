@@ -23,12 +23,17 @@ private struct ClockAgendaCard: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline) {
+                HStack(alignment: .center, spacing: 8) {
+                    // Shrinks (down to half size) to fit beside the battery/AirPods badges.
                     Text(context.date, format: .dateTime.hour().minute())
                         .font(.system(size: 32, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                    Spacer(minLength: 4)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     PowerBadges()
+                        .fixedSize()
+                        .layoutPriority(1)
                 }
                 Text(context.date, format: .dateTime.weekday(.wide).month(.wide).day())
                     .font(.system(size: 12, weight: .medium))
@@ -54,9 +59,9 @@ private struct PowerBadges: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            ForEach(bluetooth.connected.filter { $0.battery != nil }.prefix(1)) { device in
-                badge(icon: device.icon, text: device.battery ?? "", tint: .white.opacity(0.7))
-                    .help(device.name)
+            ForEach(bluetooth.connected.filter { $0.shortBattery != nil }.prefix(1)) { device in
+                badge(icon: device.icon, text: device.shortBattery ?? "", tint: .white.opacity(0.7))
+                    .help("\(device.name): \(device.battery ?? "")")
             }
             if battery.hasBattery {
                 badge(icon: battery.icon, text: "\(battery.percent)%",
