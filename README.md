@@ -111,6 +111,6 @@ Sources/AgentNotch/
    - ✅ Live lyrics (LRCLIB, time-synced, opt-in)
 4. ✅ Shelf (drag files onto the notch, drag out, AirDrop/copy), calendar (agenda on Home, alerts before
    events, Join for video calls), battery (charging pop, low-battery alerts), Bluetooth connect alerts
-5. Clipboard, notes, timers, mirror, polish
+5. Notes, timers, mirror, polish (clipboard history is out of scope: handled by another app)
 
 Uses private SkyLight calls (fullscreen detection, later MediaRemote), so it's distributed outside the Mac App Store.
