@@ -11,6 +11,9 @@ struct Lyrics: Codable, Equatable {
     var lines: [Line] = []
     var plain: String?
     var instrumental = false
+    /// Set when these lyrics belong to a different-length version of the song (lyrics duration minus
+    /// track duration, seconds). Timings will likely need a manual sync.
+    var versionDelta: Double?
 
     var isSynced: Bool { !lines.isEmpty }
 }
@@ -25,6 +28,8 @@ final class LyricsService: @unchecked Sendable {
         let artist: String
         let album: String
         let duration: Double
+        /// Prefer uploads already written in Latin letters (e.g. romanized Hindi).
+        var preferLatin = false
     }
 
     enum Result {
@@ -81,10 +86,15 @@ final class LyricsService: @unchecked Sendable {
                 URLQueryItem(name: "duration", value: String(Int(q.duration.rounded()))),
             ]
             if !q.album.isEmpty { items.append(URLQueryItem(name: "album_name", value: q.album)) }
-            if let record: Record = try await get("get", items), let lyrics = Self.lyrics(from: record) {
-                if lyrics.isSynced || lyrics.instrumental { return .found(lyrics) }
-                // Plain-only exact hit: keep it, but a search might still find a synced version.
-                if let better = try await search(q), better.isSynced { return .found(better) }
+            if let record: Record = try await get("get", items), Self.fits(record, q),
+               let lyrics = Self.lyrics(from: record) {
+                let wantsLatin = q.preferLatin && !Self.isLatin(record)
+                if (lyrics.isSynced || lyrics.instrumental) && !wantsLatin { return .found(lyrics) }
+                // Plain-only or native-script exact hit: a search may find a synced / romanized upload.
+                if let better = try await search(q), better.isSynced || !lyrics.isSynced,
+                   better.versionDelta == nil {
+                    return .found(better)
+                }
                 return .found(lyrics)
             }
         }
@@ -101,24 +111,47 @@ final class LyricsService: @unchecked Sendable {
             // Artist names from video sites are often a channel name; try a free-text query.
             records = try await get("search", [URLQueryItem(name: "q", value: "\(q.artist) \(q.title)")]) ?? []
         }
-        return Self.best(records, for: q).flatMap(Self.lyrics(from:))
-    }
-
-    /// Picks the closest-duration record, preferring synced lyrics. Rejects clear mismatches.
-    private static func best(_ records: [Record], for q: Query) -> Record? {
-        let tolerance: Double = 4
-        let candidates = records.filter { r in
-            guard q.duration > 0, let d = r.duration else { return true }
-            return abs(d - q.duration) <= tolerance
-        }
+        records = records.filter { Self.fits($0, q) }
+        let titleKey = Self.normalize(q.title)
         func score(_ r: Record) -> Double {
             var s = 0.0
             if r.syncedLyrics?.isEmpty == false { s += 10 }
+            if q.preferLatin, Self.isLatin(r) { s += 6 }
             if let d = r.duration, q.duration > 0 { s -= abs(d - q.duration) }
-            if normalize(r.trackName ?? "") == normalize(q.title) { s += 3 }
+            if Self.normalize(r.trackName ?? "") == titleKey { s += 3 }
             return s
         }
-        return candidates.max { score($0) < score($1) }
+        // Same-length version first: its timings should line up.
+        let tolerance: Double = 4
+        let sameLength = records.filter { r in
+            guard q.duration > 0, let d = r.duration else { return true }
+            return abs(d - q.duration) <= tolerance
+        }
+        if let r = sameLength.max(by: { score($0) < score($1) }) { return Self.lyrics(from: r) }
+
+        // Otherwise accept another version of the same title (radio edit, music video…), flagged so
+        // the UI can ask for a one-click sync. Different songs that merely share words are skipped.
+        let otherVersions = records.filter { r in
+            guard let d = r.duration, Self.normalize(r.trackName ?? "") == titleKey else { return false }
+            return abs(d - q.duration) <= 90
+        }
+        guard let r = otherVersions.max(by: { score($0) < score($1) }), var lyrics = Self.lyrics(from: r) else { return nil }
+        lyrics.versionDelta = (r.duration ?? q.duration) - q.duration
+        return lyrics
+    }
+
+    /// Rejects uploads whose timings can't belong to this track (lines past the end of the song —
+    /// common with lyrics copied onto a shorter edit).
+    private static func fits(_ r: Record, _ q: Query) -> Bool {
+        guard q.duration > 0, let synced = r.syncedLyrics, !synced.isEmpty else { return true }
+        let lines = parseLRC(synced)
+        guard let last = lines.last?.time else { return true }
+        return last <= q.duration + 3
+    }
+
+    private static func isLatin(_ r: Record) -> Bool {
+        let text = r.syncedLyrics ?? r.plainLyrics ?? ""
+        return !Romanizer.needsRomanizing(String(text.prefix(2000)))
     }
 
     private func get<T: Decodable>(_ path: String, _ items: [URLQueryItem]) async throws -> T? {
@@ -162,9 +195,18 @@ final class LyricsService: @unchecked Sendable {
         return result
     }
 
-    private static func parseTimestamp(_ tag: Substring) -> Double? {
+    /// `mm:ss.xx`, plus malformed variants seen in the wild: `mm:ssxx` (dot dropped) and `mm:ss:xx`.
+    static func parseTimestamp(_ tag: Substring) -> Double? {
         let parts = tag.split(separator: ":")
-        guard parts.count == 2, let minutes = Double(parts[0]), let seconds = Double(parts[1]) else { return nil }
+        guard parts.count == 2 || parts.count == 3, let minutes = Double(parts[0]) else { return nil }
+        var secondsText = String(parts[1])
+        if parts.count == 3 {
+            guard parts[2].allSatisfy(\.isNumber) else { return nil }
+            secondsText += "." + parts[2]
+        } else if !secondsText.contains("."), secondsText.count > 2, secondsText.allSatisfy(\.isNumber) {
+            secondsText.insert(".", at: secondsText.index(secondsText.startIndex, offsetBy: 2))
+        }
+        guard let seconds = Double(secondsText), seconds < 60 else { return nil }
         return minutes * 60 + seconds
     }
 
@@ -200,7 +242,13 @@ final class LyricsService: @unchecked Sendable {
 
         return Query(title: title.trimmingCharacters(in: .whitespaces),
                      artist: artist.trimmingCharacters(in: .whitespaces),
-                     album: q.album, duration: q.duration)
+                     album: q.album, duration: q.duration, preferLatin: q.preferLatin)
+    }
+
+    /// Identity of a song regardless of length or version, for per-song settings like sync offsets.
+    static func songKey(title: String, artist: String) -> String {
+        let c = clean(Query(title: title, artist: artist, album: "", duration: 0))
+        return "\(normalize(c.artist))|\(normalize(c.title))"
     }
 
     static func normalize(_ s: String) -> String {
@@ -216,7 +264,7 @@ final class LyricsService: @unchecked Sendable {
     }
 
     private static func cacheKey(_ q: Query) -> String {
-        let raw = "\(normalize(q.artist))|\(normalize(q.title))|\(Int(q.duration.rounded()))"
+        let raw = "v2|\(normalize(q.artist))|\(normalize(q.title))|\(Int(q.duration.rounded()))|\(q.preferLatin)"
         return SHA256.hash(data: Data(raw.utf8)).prefix(16).map { String(format: "%02x", $0) }.joined()
     }
 

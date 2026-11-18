@@ -68,7 +68,16 @@ title, artist, album and length are sent, once per song; hits and misses are cac
 `~/Library/Application Support/AgentNotch/Lyrics`. Video-site titles ("Artist – Song (Official Video)")
 are cleaned before lookup. The current line shows under the closed notch and in a scrolling view in
 the Media tab (click a line to seek). Line changes are scheduled for the exact moment the next
-line starts rather than polled. A ±2 s timing nudge in Settings fixes tracks that run early or late.
+line starts rather than polled.
+
+- **Sync:** uploads whose timings can't fit the track are rejected, and malformed LRC timestamps
+  (`[00:3045]`, `[01:02:50]`) are repaired. If a song is still off, ⌥-click (or right-click) the line
+  you're hearing: that sets a per-song offset of any size, remembered for that song. The ± buttons
+  nudge it by 0.5 s. The all-songs timing in Settings is for constant delays (e.g. Bluetooth).
+  Lyrics from a different-length version (a music video, a radio edit) are still shown, with a note.
+- **English letters:** on by default. Romanized uploads are preferred; otherwise Hindi/Devanagari and
+  Punjabi/Gurmukhi are converted Hinglish-style with silent-"a" rules ("तुम ही हो" → "Tum hi ho"),
+  and other scripts use the system transliterator. This is transliteration, not translation.
 
 ## Layout
 

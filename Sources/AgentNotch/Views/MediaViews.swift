@@ -68,7 +68,7 @@ struct MediaTabView: View {
         HStack(spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 10) {
-                    ArtworkView(image: media.artwork, side: 52, cornerRadius: 9)
+                    ArtworkView(image: media.artwork, side: 46, cornerRadius: 8)
                         .shadow(color: accent.opacity(0.35), radius: 10)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(media.title)
@@ -86,9 +86,8 @@ struct MediaTabView: View {
                     Spacer(minLength: 0)
                     LyricsToggleButton(showing: $showLyrics)
                 }
-                Text("Lyrics from LRCLIB")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.3))
+                LyricsSyncControls()
+                    .help("This song's lyrics timing (remembered). Lyrics from LRCLIB.")
             }
             .frame(width: 190)
 

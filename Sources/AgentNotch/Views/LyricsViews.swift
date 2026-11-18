@@ -10,6 +10,11 @@ struct LyricsPanel: View {
             switch lyrics.state {
             case .synced:
                 syncedList
+                    .overlay(alignment: .top) {
+                        if let delta = lyrics.lyrics?.versionDelta, lyrics.songOffset == 0 {
+                            badge("Lyrics are for a \(delta < 0 ? "shorter" : "longer") version · ⌥-click the line you hear")
+                        }
+                    }
             case .plain:
                 ScrollView(showsIndicators: false) {
                     Text(lyrics.lyrics?.plain ?? "")
@@ -58,9 +63,15 @@ struct LyricsPanel: View {
                     Color.clear.frame(height: 40)
                     ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
                         LyricRow(text: line.text, isCurrent: index == current,
-                                 isPast: (current ?? -1) > index, accent: accent) {
-                            lyrics.seek(toLine: index)
-                        }
+                                 isPast: (current ?? -1) > index, accent: accent,
+                                 onTap: {
+                                     if NSEvent.modifierFlags.contains(.option) {
+                                         lyrics.syncLine(index)
+                                     } else {
+                                         lyrics.seek(toLine: index)
+                                     }
+                                 },
+                                 onSync: { lyrics.syncLine(index) })
                         .id(index)
                     }
                     Color.clear.frame(height: 40)
@@ -103,6 +114,7 @@ private struct LyricRow: View {
     let isPast: Bool
     let accent: Color
     let onTap: () -> Void
+    let onSync: () -> Void
     @State private var hovering = false
 
     var body: some View {
@@ -120,8 +132,58 @@ private struct LyricRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+        .contextMenu {
+            Button("Sync: this line is playing now", action: onSync)
+            Button("Play from this line", action: onTap)
+        }
         .onHover { hovering = $0 }
+        .help("Click to play from here · ⌥-click when you hear this line to fix the timing")
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isCurrent)
+    }
+}
+
+/// Per-song timing controls: nudge earlier/later, shows the current correction, reset.
+struct LyricsSyncControls: View {
+    @ObservedObject private var lyrics = LyricsModel.shared
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "timer")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.4))
+            step("minus", -0.5, help: "Lyrics are ahead: show lines later")
+            Text(label)
+                .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                .foregroundStyle(.white.opacity(lyrics.songOffset == 0 ? 0.4 : 0.8))
+                .frame(minWidth: 40)
+            step("plus", 0.5, help: "Lyrics are behind: show lines earlier")
+            if lyrics.songOffset != 0 {
+                Button { lyrics.resetSongOffset() } label: {
+                    Image(systemName: "arrow.uturn.backward").font(.system(size: 9, weight: .bold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white.opacity(0.5))
+                .help("Reset this song's timing")
+            }
+        }
+        .disabled(lyrics.state != .synced)
+        .opacity(lyrics.state == .synced ? 1 : 0.4)
+    }
+
+    private var label: String {
+        lyrics.songOffset == 0 ? "in sync" : String(format: "%+.1fs", lyrics.songOffset)
+    }
+
+    private func step(_ icon: String, _ delta: Double, help: String) -> some View {
+        Button { lyrics.nudgeSong(by: delta) } label: {
+            Image(systemName: icon)
+                .font(.system(size: 8, weight: .bold))
+                .frame(width: 16, height: 14)
+                .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.1)))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white.opacity(0.75))
+        .help(help)
     }
 }
 

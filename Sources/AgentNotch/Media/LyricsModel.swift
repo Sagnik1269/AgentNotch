@@ -21,7 +21,10 @@ final class LyricsModel: ObservableObject {
     }
 
     @Published private(set) var state: State = .off
+    /// Lyrics as shown (romanized if that setting is on).
     @Published private(set) var lyrics: Lyrics?
+    /// Per-song sync correction in seconds, remembered across plays (on top of the global nudge).
+    @Published private(set) var songOffset: Double = 0
     /// Index into `lyrics.lines` of the line being sung; nil before the first line.
     @Published private(set) var currentIndex: Int?
 
@@ -29,6 +32,8 @@ final class LyricsModel: ObservableObject {
     private let media = NowPlayingModel.shared
     private let settings = AppSettings.shared
     private var trackKey = ""
+    private var songKey = ""
+    private static let offsetsKey = "lyricsSongOffsets"
     private var loadTask: Task<Void, Never>?
     private var tick: DispatchWorkItem?
     private var cancellables: Set<AnyCancellable> = []
@@ -50,6 +55,11 @@ final class LyricsModel: ObservableObject {
                 self?.mediaChanged()
             }
             .store(in: &cancellables)
+        settings.$romanizeLyrics
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.retry() }
+            .store(in: &cancellables)
         settings.$lyricsOffset
             .dropFirst()
             .receive(on: DispatchQueue.main)
@@ -67,7 +77,29 @@ final class LyricsModel: ObservableObject {
     /// Seeks playback to the start of a line (accounting for the timing nudge).
     func seek(toLine index: Int) {
         guard let lines = lyrics?.lines, lines.indices.contains(index) else { return }
-        media.seek(to: max(lines[index].time - settings.lyricsOffset, 0) + 0.05)
+        media.seek(to: max(lines[index].time - totalOffset, 0) + 0.05)
+    }
+
+    /// "This line is being sung right now": shifts this song's timing so it lines up. Fixes any size
+    /// of offset in one click, and is remembered for the next time the song plays.
+    func syncLine(_ index: Int) {
+        guard let lines = lyrics?.lines, lines.indices.contains(index) else { return }
+        setSongOffset(lines[index].time + 0.1 - media.elapsed() - settings.lyricsOffset)
+    }
+
+    func nudgeSong(by delta: Double) { setSongOffset(songOffset + delta) }
+    func resetSongOffset() { setSongOffset(0) }
+
+    private var totalOffset: Double { settings.lyricsOffset + songOffset }
+
+    private func setSongOffset(_ value: Double) {
+        let clamped = (min(max(value, -300), 300) * 10).rounded() / 10
+        songOffset = abs(clamped) < 0.05 ? 0 : clamped
+        guard !songKey.isEmpty else { return }
+        var all = UserDefaults.standard.dictionary(forKey: Self.offsetsKey) as? [String: Double] ?? [:]
+        all[songKey] = songOffset == 0 ? nil : songOffset
+        UserDefaults.standard.set(all, forKey: Self.offsetsKey)
+        resync()
     }
 
     /// Clears a failed lookup so it's tried again.
@@ -93,6 +125,9 @@ final class LyricsModel: ObservableObject {
         let key = "\(media.title)\u{1F}\(media.artist)\u{1F}\(Int(media.duration.rounded()))"
         if key != trackKey {
             trackKey = key
+            songKey = LyricsService.songKey(title: media.title, artist: media.artist)
+            let saved = UserDefaults.standard.dictionary(forKey: Self.offsetsKey) as? [String: Double]
+            songOffset = saved?[songKey] ?? 0
             load()
         }
         resync()
@@ -109,15 +144,23 @@ final class LyricsModel: ObservableObject {
     private func load() {
         reset(to: .loading)
         let query = LyricsService.Query(title: media.title, artist: media.artist,
-                                        album: media.album, duration: media.duration)
+                                        album: media.album, duration: media.duration,
+                                        preferLatin: settings.romanizeLyrics)
         let key = trackKey
         let service = service
+        let romanize = settings.romanizeLyrics
         loadTask = Task { [weak self] in
             // Let metadata settle (title → artist → duration often arrive in separate updates).
             try? await Task.sleep(for: .milliseconds(450))
             guard !Task.isCancelled else { return }
             let outcome: Result<LyricsService.Result, Error>
-            do { outcome = .success(try await service.lyrics(for: query)) } catch { outcome = .failure(error) }
+            do {
+                var result = try await service.lyrics(for: query)
+                if romanize, case .found(let found) = result { result = .found(Self.romanized(found)) }
+                outcome = .success(result)
+            } catch {
+                outcome = .failure(error)
+            }
             guard !Task.isCancelled, let self, self.trackKey == key else { return }
             self.apply(outcome)
         }
@@ -137,13 +180,21 @@ final class LyricsModel: ObservableObject {
         }
     }
 
+    private nonisolated static func romanized(_ l: Lyrics) -> Lyrics {
+        var out = l
+        out.lines = l.lines.map { .init(time: $0.time, text: Romanizer.romanize($0.text)) }
+        out.plain = l.plain.map { $0.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { Romanizer.romanize(String($0)) }.joined(separator: "\n") }
+        return out
+    }
+
     // MARK: - Line timing
 
     private func resync() {
         tick?.cancel()
         guard state == .synced, let lines = lyrics?.lines, !lines.isEmpty else { return }
 
-        let t = media.elapsed() + settings.lyricsOffset
+        let t = media.elapsed() + totalOffset
         let index = Self.lineIndex(at: t, in: lines)
         if index != currentIndex { currentIndex = index }
 

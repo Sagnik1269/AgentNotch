@@ -116,7 +116,8 @@ struct SettingsView: View {
                 if settings.liveLyrics {
                     Toggle("Show the current line in the closed notch", isOn: $settings.lyricsInClosedNotch)
                         .disabled(!settings.showNowPlayingActivity)
-                    LabeledContent("Lyrics timing") {
+                    Toggle("Write lyrics in English letters (e.g. \"tum hi ho\")", isOn: $settings.romanizeLyrics)
+                    LabeledContent("Timing for all songs") {
                         HStack(spacing: 8) {
                             Text(settings.lyricsOffset == 0 ? "In sync"
                                  : String(format: "%+.1f s %@", settings.lyricsOffset,
@@ -133,7 +134,7 @@ struct SettingsView: View {
             } header: {
                 Text("Media")
             } footer: {
-                Text("Live lyrics look up the playing song's title, artist, album and length on lrclib.net, once per song (results are cached on this Mac). Nothing is sent while it's off. The visualizer reads your Mac's audio output live (it's never recorded) and only while something is playing. If the bars stay flat, allow AgentNotch under Privacy & Security → Screen & System Audio Recording → System Audio Recording Only.")
+                Text("Live lyrics look up the playing song's title, artist, album and length on lrclib.net, once per song (results are cached on this Mac). Nothing is sent while it's off. If one song is out of sync, ⌥-click (or right-click) the line you're hearing in the Media tab; that fix is remembered for that song. The all-songs timing is for constant delays such as Bluetooth headphones. The visualizer reads your Mac's audio output live (it's never recorded) and only while something is playing. If the bars stay flat, allow AgentNotch under Privacy & Security → Screen & System Audio Recording → System Audio Recording Only.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

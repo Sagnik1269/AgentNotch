@@ -36,6 +36,8 @@ final class AppSettings: ObservableObject {
     @Published var showVisualizer: Bool { didSet { defaults.set(showVisualizer, forKey: Keys.showVisualizer) } }
     /// Off by default: turning it on sends the current track's title/artist to lrclib.net.
     @Published var liveLyrics: Bool { didSet { defaults.set(liveLyrics, forKey: Keys.liveLyrics) } }
+    /// Show non-Latin lyrics in Latin letters ("tum hi ho"). Transliteration, not translation.
+    @Published var romanizeLyrics: Bool { didSet { defaults.set(romanizeLyrics, forKey: Keys.romanizeLyrics) } }
     @Published var lyricsInClosedNotch: Bool { didSet { defaults.set(lyricsInClosedNotch, forKey: Keys.lyricsInClosedNotch) } }
     /// Seconds added to the playback position when picking the lyric line (positive = earlier lines).
     @Published var lyricsOffset: Double { didSet { defaults.set(lyricsOffset, forKey: Keys.lyricsOffset) } }
@@ -64,6 +66,7 @@ final class AppSettings: ObservableObject {
         static let showVisualizer = "showVisualizer"
         static let liveLyrics = "liveLyrics"
         static let lyricsInClosedNotch = "lyricsInClosedNotch"
+        static let romanizeLyrics = "romanizeLyrics"
         static let lyricsOffset = "lyricsOffset"
         static let replaceSystemHUD = "replaceSystemHUD"
         static let commandAlertThreshold = "commandAlertThreshold"
@@ -83,6 +86,7 @@ final class AppSettings: ObservableObject {
             Keys.showVisualizer: true,
             Keys.liveLyrics: false,
             Keys.lyricsInClosedNotch: true,
+            Keys.romanizeLyrics: true,
             Keys.lyricsOffset: 0.0,
             Keys.replaceSystemHUD: true,
             Keys.commandAlertThreshold: 10.0,
@@ -99,6 +103,7 @@ final class AppSettings: ObservableObject {
         showVisualizer = defaults.bool(forKey: Keys.showVisualizer)
         liveLyrics = defaults.bool(forKey: Keys.liveLyrics)
         lyricsInClosedNotch = defaults.bool(forKey: Keys.lyricsInClosedNotch)
+        romanizeLyrics = defaults.bool(forKey: Keys.romanizeLyrics)
         lyricsOffset = defaults.double(forKey: Keys.lyricsOffset)
         replaceSystemHUD = defaults.bool(forKey: Keys.replaceSystemHUD)
         commandAlertThreshold = defaults.double(forKey: Keys.commandAlertThreshold)
