@@ -8,14 +8,26 @@ enum ClosedActivity: Equatable {
     case hud(HUDState)
     case alert(NotchAlert)
     case agents(waiting: Int, working: Int)
-    case nowPlaying(peek: Bool)
+    case nowPlaying(row: NowPlayingRow)
+
+    /// Optional row under the notch while music plays.
+    enum NowPlayingRow: Equatable {
+        case none
+        case peek       // title/artist for a few seconds after a track change
+        case lyric      // the live lyric line
+    }
 
     /// Coarse identity used to drive shape animations (value changes within a kind shouldn't re-animate).
     var layoutKey: Int {
         switch self {
         case .idle: 0
         case .hud: 1
-        case .nowPlaying(let peek): peek ? 3 : 2
+        case .nowPlaying(let row):
+            switch row {
+            case .none: 2
+            case .peek: 3
+            case .lyric: 6
+            }
         case .alert: 4
         case .agents: 5
         }
@@ -31,18 +43,22 @@ enum ClosedActivity: Equatable {
 
     @MainActor
     static func current() -> ClosedActivity {
-        current(settings: .shared, hud: .shared, media: .shared, alerts: .shared, agents: .shared)
+        current(settings: .shared, hud: .shared, media: .shared, alerts: .shared, agents: .shared, lyrics: .shared)
     }
 
     @MainActor
     static func current(settings: AppSettings, hud: HUDModel, media: NowPlayingModel,
-                        alerts: AlertCenter, agents: AgentsModel) -> ClosedActivity {
+                        alerts: AlertCenter, agents: AgentsModel, lyrics: LyricsModel) -> ClosedActivity {
         if let state = hud.state { return .hud(state) }
         if let alert = alerts.current { return .alert(alert) }
         let waiting = agents.waitingCount, working = agents.workingCount
         if waiting > 0 { return .agents(waiting: waiting, working: working) }
         if settings.showNowPlayingActivity, media.hasMedia, media.isPlaying {
-            return .nowPlaying(peek: settings.showTrackPeek && media.isPeeking)
+            if settings.showTrackPeek && media.isPeeking { return .nowPlaying(row: .peek) }
+            if settings.liveLyrics, settings.lyricsInClosedNotch, lyrics.state == .synced {
+                return .nowPlaying(row: .lyric)
+            }
+            return .nowPlaying(row: .none)
         }
         if working > 0 { return .agents(waiting: 0, working: working) }
         return .idle

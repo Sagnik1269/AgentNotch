@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeSystem()
         observeSettings()
         NowPlayingModel.shared.start()
+        LyricsModel.shared.start()
         setUpHUD()
         setUpVisualizer()
         startDevLayer()

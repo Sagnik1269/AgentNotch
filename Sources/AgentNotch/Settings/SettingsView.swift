@@ -112,10 +112,29 @@ struct SettingsView: View {
                 if settings.showVisualizer {
                     visualizerStatus
                 }
+                Toggle("Live lyrics", isOn: $settings.liveLyrics)
+                if settings.liveLyrics {
+                    Toggle("Show the current line in the closed notch", isOn: $settings.lyricsInClosedNotch)
+                        .disabled(!settings.showNowPlayingActivity)
+                    Toggle("Write lyrics in English letters (e.g. \"tum hi ho\")", isOn: $settings.romanizeLyrics)
+                    LabeledContent("Timing for all songs") {
+                        HStack(spacing: 8) {
+                            Text(settings.lyricsOffset == 0 ? "In sync"
+                                 : String(format: "%+.1f s %@", settings.lyricsOffset,
+                                          settings.lyricsOffset > 0 ? "earlier" : "later"))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                            Stepper("", value: $settings.lyricsOffset, in: -2...2, step: 0.1)
+                                .labelsHidden()
+                            Button("Reset") { settings.lyricsOffset = 0 }
+                                .disabled(settings.lyricsOffset == 0)
+                        }
+                    }
+                }
             } header: {
                 Text("Media")
             } footer: {
-                Text("The visualizer reads your Mac's audio output live (it's never recorded) and only while something is playing. If the bars stay flat, allow AgentNotch under Privacy & Security → Screen & System Audio Recording → System Audio Recording Only.")
+                Text("Live lyrics look up the playing song's title, artist, album and length on lrclib.net, once per song (results are cached on this Mac). Nothing is sent while it's off. If one song is out of sync, ⌥-click (or right-click) the line you're hearing in the Media tab; that fix is remembered for that song. The all-songs timing is for constant delays such as Bluetooth headphones. The visualizer reads your Mac's audio output live (it's never recorded) and only while something is playing. If the bars stay flat, allow AgentNotch under Privacy & Security → Screen & System Audio Recording → System Audio Recording Only.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -166,8 +185,9 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        // Fixed width; height comes from the window, and the grouped form scrolls inside it.
         .frame(width: 460)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(minHeight: 300, maxHeight: .infinity)
         .onAppear { settings.refreshLaunchAtLogin() }
     }
 }
@@ -203,14 +223,31 @@ final class SettingsWindowController {
     func show() {
         if window == nil {
             let hosting = NSHostingController(rootView: SettingsView())
+            // Don't let SwiftUI grow the window to the form's full height (taller than most screens).
+            hosting.sizingOptions = []
             let window = NSWindow(contentViewController: hosting)
             window.title = "AgentNotch Settings"
-            window.styleMask = [.titled, .closable, .miniaturizable]
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.isReleasedWhenClosed = false
+            window.contentMinSize = NSSize(width: 460, height: 300)
+            window.contentMaxSize = NSSize(width: 460, height: CGFloat.greatestFiniteMagnitude)
+            window.setContentSize(Self.defaultSize(on: NSScreen.main))
             window.center()
             self.window = window
         }
+        if let window, let visible = (window.screen ?? NSScreen.main)?.visibleFrame,
+           !visible.contains(window.frame) {
+            // Opened before on a bigger display, or the old oversized frame: bring it back on screen.
+            window.setContentSize(Self.defaultSize(on: window.screen ?? NSScreen.main))
+            window.center()
+        }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// 600 pt tall, or less on short screens, always leaving room for the title bar.
+    private static func defaultSize(on screen: NSScreen?) -> NSSize {
+        let available = (screen?.visibleFrame.height ?? 800) - 80
+        return NSSize(width: 460, height: max(300, min(600, available)))
     }
 }
