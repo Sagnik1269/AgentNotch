@@ -28,6 +28,8 @@
     <string>AgentNotch shows your upcoming events in the notch and reminds you a few minutes before they start. Events never leave your Mac.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>AgentNotch shows when your Bluetooth devices connect, with their battery levels.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>AgentNotch shows your camera as a mirror in the notch when you click the mirror button. Nothing is recorded.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

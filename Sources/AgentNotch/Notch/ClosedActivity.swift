@@ -2,11 +2,12 @@ import Foundation
 
 /// What the closed notch is showing besides plain black.
 ///
-/// Priority: HUD > status pop (battery) > alert > an agent waiting for you > now playing > agents working > idle.
+/// Priority: HUD > status pop (battery) > alert > an agent waiting for you > timer > now playing > agents working > idle.
 enum ClosedActivity: Equatable {
     case idle
     case hud(HUDState)
     case status(StatusPop)
+    case timer
     case alert(NotchAlert)
     case agents(waiting: Int, working: Int)
     case nowPlaying(row: NowPlayingRow)
@@ -32,6 +33,7 @@ enum ClosedActivity: Equatable {
         case .alert: 4
         case .agents: 5
         case .status: 7
+        case .timer: 8
         }
     }
 
@@ -40,6 +42,7 @@ enum ClosedActivity: Equatable {
         switch self {
         case .alert(let alert): alert.tab
         case .agents: .dev
+        case .timer: .timer
         default: nil
         }
     }
@@ -59,6 +62,7 @@ enum ClosedActivity: Equatable {
         let waiting = showAgents ? agents.waitingCount : 0
         let working = showAgents ? agents.workingCount : 0
         if waiting > 0 { return .agents(waiting: waiting, working: working) }
+        if settings.showTimerInNotch, TimerModel.shared.isActive { return .timer }
         if settings.showNowPlayingActivity, media.hasMedia, media.isPlaying {
             if settings.showTrackPeek && media.isPeeking { return .nowPlaying(row: .peek) }
             if settings.liveLyrics, settings.lyricsInClosedNotch, lyrics.state == .synced {

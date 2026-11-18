@@ -64,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        NotesModel.shared.save()
         NowPlayingModel.shared.stop()
         MediaKeyInterceptor.shared.stop()
         eventServer?.stop()

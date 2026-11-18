@@ -66,6 +66,21 @@ final class AppSettings: ObservableObject {
     /// Off by default: macOS asks for Bluetooth permission the first time it's used.
     @Published var bluetoothAlerts: Bool { didSet { defaults.set(bluetoothAlerts, forKey: Keys.bluetoothAlerts) } }
 
+    // Tools
+    @Published var showTimerInNotch: Bool { didSet { defaults.set(showTimerInNotch, forKey: Keys.showTimerInNotch) } }
+    @Published var showMirrorButton: Bool { didSet { defaults.set(showMirrorButton, forKey: Keys.showMirrorButton) } }
+    /// Tabs hidden from the header (Home can't be hidden).
+    @Published var hiddenTabs: Set<NotchTab> {
+        didSet { defaults.set(hiddenTabs.map(\.rawValue).sorted(), forKey: Keys.hiddenTabs) }
+    }
+
+    var visibleTabs: [NotchTab] { NotchTab.allCases.filter { $0 == .home || !hiddenTabs.contains($0) } }
+
+    func setTab(_ tab: NotchTab, visible: Bool) {
+        guard tab != .home else { return }
+        if visible { hiddenTabs.remove(tab) } else { hiddenTabs.insert(tab) }
+    }
+
     @Published private(set) var launchAtLogin: Bool = false
     @Published private(set) var launchAtLoginError: String?
 
@@ -88,6 +103,9 @@ final class AppSettings: ObservableObject {
         static let quietWhenFocused = "quietWhenFocused"
         static let shelfOnDrag = "shelfOnDrag"
         static let showAgents = "showAgents"
+        static let showTimerInNotch = "showTimerInNotch"
+        static let showMirrorButton = "showMirrorButton"
+        static let hiddenTabs = "hiddenTabs"
         static let showDeviceBatteries = "showDeviceBatteries"
         static let showCalendar = "showCalendar"
         static let calendarAlerts = "calendarAlerts"
@@ -117,6 +135,8 @@ final class AppSettings: ObservableObject {
             Keys.quietWhenFocused: true,
             Keys.shelfOnDrag: true,
             Keys.showAgents: false,
+            Keys.showTimerInNotch: true,
+            Keys.showMirrorButton: true,
             Keys.showDeviceBatteries: false,
             Keys.showCalendar: true,
             Keys.calendarAlerts: true,
@@ -143,6 +163,9 @@ final class AppSettings: ObservableObject {
         quietWhenFocused = defaults.bool(forKey: Keys.quietWhenFocused)
         shelfOnDrag = defaults.bool(forKey: Keys.shelfOnDrag)
         showAgents = defaults.bool(forKey: Keys.showAgents)
+        showTimerInNotch = defaults.bool(forKey: Keys.showTimerInNotch)
+        showMirrorButton = defaults.bool(forKey: Keys.showMirrorButton)
+        hiddenTabs = Set((defaults.stringArray(forKey: Keys.hiddenTabs) ?? []).compactMap(NotchTab.init(rawValue:)))
         showDeviceBatteries = defaults.bool(forKey: Keys.showDeviceBatteries)
         showCalendar = defaults.bool(forKey: Keys.showCalendar)
         calendarAlerts = defaults.bool(forKey: Keys.calendarAlerts)

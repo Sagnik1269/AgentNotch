@@ -76,7 +76,13 @@ final class NotchWindowController {
     func close() {
         guard viewModel.isOpen else { return }
         pendingHoverWork?.cancel()
+        let hadKeyboard = panel.isKeyWindow
         viewModel.setOpen(false)
+        if hadKeyboard {
+            // Typing went to the notch; hand the keyboard back to the app you were using.
+            panel.makeFirstResponder(nil)
+            NSWorkspace.shared.frontmostApplication?.activate()
+        }
         handleMouseMoved(NSEvent.mouseLocation)
     }
 
@@ -124,9 +130,9 @@ final class NotchWindowController {
         pendingHoverWork?.cancel()
         if inside, !viewModel.isOpen, settings.hoverToOpen {
             schedule(after: settings.hoverDelay) { [weak self] in self?.open() }
-        } else if !inside, viewModel.isOpen {
+        } else if !inside, viewModel.isOpen, !viewModel.isEditing {
             schedule(after: 0.3) { [weak self] in
-                guard let self, !self.viewModel.isHovering else { return }
+                guard let self, !self.viewModel.isHovering, !self.viewModel.isEditing else { return }
                 self.close()
             }
         }

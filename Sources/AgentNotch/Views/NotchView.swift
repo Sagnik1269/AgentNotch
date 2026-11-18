@@ -11,6 +11,7 @@ struct NotchView: View {
     @ObservedObject private var agents = AgentsModel.shared
     @ObservedObject private var lyrics = LyricsModel.shared
     @ObservedObject private var statusPops = StatusPopModel.shared
+    @ObservedObject private var timer = TimerModel.shared
 
     var body: some View {
         let activity = ClosedActivity.current(settings: settings, hud: hud, media: media,
@@ -111,7 +112,7 @@ struct ClosedActivityView: View {
 
     private var wingWidth: CGFloat {
         switch activity {
-        case .hud, .status: return vm.hudWingWidth
+        case .hud, .status, .timer: return vm.hudWingWidth
         default: break
         }
         return vm.mediaWingWidth
@@ -125,6 +126,13 @@ struct ClosedActivityView: View {
             // Pinned to the outer edge; the same inset is used for the slider on the right.
             Image(systemName: state.icon)
                 .font(.system(size: 13, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, vm.hudEdgeInset)
+        case .timer:
+            Image(systemName: TimerModel.shared.isRunning ? "timer" : "pause.circle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(NotchAlert.Tint.orange.color)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, vm.hudEdgeInset)
@@ -161,6 +169,14 @@ struct ClosedActivityView: View {
                     .font(.system(size: 10, weight: .semibold).monospacedDigit())
                     .foregroundStyle(.white.opacity(0.7))
                     .frame(width: 22, alignment: .trailing)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.trailing, vm.hudEdgeInset)
+        case .timer:
+            TimelineView(.periodic(from: .now, by: 0.5)) { context in
+                Text(TimerModel.format(TimerModel.shared.remaining(at: context.date)))
+                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(TimerModel.shared.isRunning ? NotchAlert.Tint.orange.color : .white.opacity(0.6))
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, vm.hudEdgeInset)
@@ -223,6 +239,7 @@ struct LyricLineRow: View {
     let accent: Color
     @ObservedObject private var lyrics = LyricsModel.shared
     @ObservedObject private var statusPops = StatusPopModel.shared
+    @ObservedObject private var timer = TimerModel.shared
 
     var body: some View {
         let line = lyrics.currentLine

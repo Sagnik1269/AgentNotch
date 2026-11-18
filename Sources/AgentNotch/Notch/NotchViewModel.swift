@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum NotchTab: String, CaseIterable, Identifiable {
-    case home, media, shelf, dev
+    case home, media, shelf, notes, timer, dev
 
     var id: String { rawValue }
 
@@ -10,6 +10,8 @@ enum NotchTab: String, CaseIterable, Identifiable {
         case .home: "Home"
         case .media: "Media"
         case .shelf: "Shelf"
+        case .notes: "Notes"
+        case .timer: "Timer"
         case .dev: "Dev"
         }
     }
@@ -19,6 +21,8 @@ enum NotchTab: String, CaseIterable, Identifiable {
         case .home: "house.fill"
         case .media: "music.note"
         case .shelf: "tray.full.fill"
+        case .notes: "note.text"
+        case .timer: "timer"
         case .dev: "terminal.fill"
         }
     }
@@ -30,6 +34,10 @@ final class NotchViewModel: ObservableObject {
     @Published private(set) var isOpen = false
     @Published var isHovering = false
     @Published var selectedTab: NotchTab = .home
+    /// A text field in the notch has focus: don't close when the cursor wanders off while typing.
+    @Published var isEditing = false
+    /// Camera mirror replaces the tab content while on.
+    @Published var showMirror = false
 
     let notchSize: CGSize
     let hasPhysicalNotch: Bool
@@ -69,7 +77,7 @@ final class NotchViewModel: ObservableObject {
         switch activity {
         case .idle:
             return CGSize(width: base, height: notchSize.height)
-        case .hud, .status:
+        case .hud, .status, .timer:
             return CGSize(width: base + hudWingWidth * 2, height: notchSize.height)
         case .nowPlaying(let row):
             let width = base + mediaWingWidth * 2
@@ -110,5 +118,9 @@ final class NotchViewModel: ObservableObject {
     func setOpen(_ open: Bool) {
         guard open != isOpen else { return }
         isOpen = open
+        if !open {
+            isEditing = false
+            showMirror = false
+        }
     }
 }

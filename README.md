@@ -92,6 +92,17 @@ line starts rather than polled.
 - **Bluetooth:** off by default (macOS asks for Bluetooth permission). Connect/disconnect alerts with
   battery levels when the device reports them (AirPods per bud + case, Apple keyboards/mice).
 
+## Notes, timer, mirror
+
+- **Notes:** several quick notes, saved as you type to `~/Library/Application Support/AgentNotch/notes.json`.
+  The notch stays open while you're typing; click outside to close it, and the keyboard goes back to
+  the app you were using.
+- **Timer:** presets from 1 min to 1 h, ±1 min, pause/resume. While it runs, the closed notch shows the
+  countdown; when it ends you get an alert and a chime.
+- **Mirror:** the camera button in the header shows a mirrored camera preview. macOS asks for camera
+  access the first time; the camera only runs while the mirror is showing.
+- Any tab except Home can be hidden in **Settings → Tabs & tools**.
+
 ## Layout
 
 ```
@@ -111,6 +122,6 @@ Sources/AgentNotch/
    - ✅ Live lyrics (LRCLIB, time-synced, opt-in)
 4. ✅ Shelf (drag files onto the notch, drag out, AirDrop/copy), calendar (agenda on Home, alerts before
    events, Join for video calls), battery (charging pop, low-battery alerts), Bluetooth connect alerts
-5. Notes, timers, mirror, polish (clipboard history is out of scope: handled by another app)
+5. ✅ Notes, timer, mirror, tab visibility (clipboard history is out of scope: handled by another app)
 
 Uses private SkyLight calls (fullscreen detection, later MediaRemote), so it's distributed outside the Mac App Store.

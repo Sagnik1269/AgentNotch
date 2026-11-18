@@ -165,6 +165,24 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                ForEach(NotchTab.allCases.filter { $0 != .home }) { tab in
+                    Toggle(isOn: Binding(
+                        get: { !settings.hiddenTabs.contains(tab) },
+                        set: { settings.setTab(tab, visible: $0) }
+                    )) {
+                        Label(tab.title, systemImage: tab.icon)
+                    }
+                }
+                Toggle("Mirror button in the header", isOn: $settings.showMirrorButton)
+                Toggle("Show a running timer in the closed notch", isOn: $settings.showTimerInNotch)
+            } header: {
+                Text("Tabs & tools")
+            } footer: {
+                Text("Hidden tabs disappear from the notch header. Home is always shown.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("Shelf") {
                 Toggle("Open the shelf when dragging files to the notch", isOn: $settings.shelfOnDrag)
                 LabeledContent("Items on the shelf") {

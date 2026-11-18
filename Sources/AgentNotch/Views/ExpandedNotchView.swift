@@ -3,6 +3,7 @@ import SwiftUI
 /// Content shown when the notch is open: a header row beside the camera housing, then the active tab.
 struct ExpandedNotchView: View {
     @ObservedObject var vm: NotchViewModel
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 8) {
@@ -10,30 +11,47 @@ struct ExpandedNotchView: View {
                 .frame(height: max(vm.notchSize.height, 28))
 
             Group {
-                switch vm.selectedTab {
-                case .home: HomeTabView()
-                case .media: MediaTabView()
-                case .shelf: ShelfTabView()
-                case .dev: DevTabView(onOpenSettings: { vm.onOpenSettings?() })
+                if vm.showMirror {
+                    MirrorView()
+                } else {
+                    switch vm.selectedTab {
+                    case .home: HomeTabView()
+                    case .media: MediaTabView()
+                    case .shelf: ShelfTabView()
+                    case .notes: NotesTabView(vm: vm)
+                    case .timer: TimerTabView()
+                    case .dev: DevTabView(onOpenSettings: { vm.onOpenSettings?() })
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .id(vm.selectedTab)
+            .id(vm.showMirror ? "mirror" : vm.selectedTab.rawValue)
             .transition(.opacity)
         }
         .padding(.bottom, 16)
         .foregroundStyle(.white)
+        .onAppear {
+            if !settings.visibleTabs.contains(vm.selectedTab) { vm.selectedTab = .home }
+        }
     }
 
     /// Tabs on the left and actions on the right; the middle stays empty for the camera housing.
     private var header: some View {
         HStack(spacing: 4) {
-            ForEach(NotchTab.allCases) { tab in
-                TabButton(tab: tab, isSelected: vm.selectedTab == tab) {
-                    withAnimation(.easeInOut(duration: 0.15)) { vm.selectedTab = tab }
+            ForEach(settings.visibleTabs) { tab in
+                TabButton(tab: tab, isSelected: !vm.showMirror && vm.selectedTab == tab) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        vm.showMirror = false
+                        vm.selectedTab = tab
+                    }
                 }
             }
             Spacer(minLength: vm.notchSize.width + 20)
+            if settings.showMirrorButton {
+                HeaderIconButton(systemName: vm.showMirror ? "camera.fill" : "camera", help: "Mirror") {
+                    withAnimation(.easeInOut(duration: 0.15)) { vm.showMirror.toggle() }
+                }
+            }
             HeaderIconButton(systemName: "gearshape.fill", help: "Settings") {
                 vm.onOpenSettings?()
             }
