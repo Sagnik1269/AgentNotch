@@ -50,6 +50,10 @@ final class AppSettings: ObservableObject {
     @Published var commandAlertThreshold: Double { didSet { defaults.set(commandAlertThreshold, forKey: Keys.commandAlertThreshold) } }
     /// Skip alerts when the app that produced them (your terminal, Claude) is frontmost.
     @Published var quietWhenFocused: Bool { didSet { defaults.set(quietWhenFocused, forKey: Keys.quietWhenFocused) } }
+    /// Claude Code sessions in the notch (closed-notch status, Dev tab list, alerts). Off by default.
+    @Published var showAgents: Bool { didSet { defaults.set(showAgents, forKey: Keys.showAgents) } }
+    /// List connected Bluetooth devices' batteries on Home (macOS asks for Bluetooth permission).
+    @Published var showDeviceBatteries: Bool { didSet { defaults.set(showDeviceBatteries, forKey: Keys.showDeviceBatteries) } }
 
     // Shelf, calendar, power
     @Published var shelfOnDrag: Bool { didSet { defaults.set(shelfOnDrag, forKey: Keys.shelfOnDrag) } }
@@ -83,6 +87,8 @@ final class AppSettings: ObservableObject {
         static let commandAlertThreshold = "commandAlertThreshold"
         static let quietWhenFocused = "quietWhenFocused"
         static let shelfOnDrag = "shelfOnDrag"
+        static let showAgents = "showAgents"
+        static let showDeviceBatteries = "showDeviceBatteries"
         static let showCalendar = "showCalendar"
         static let calendarAlerts = "calendarAlerts"
         static let calendarAlertMinutes = "calendarAlertMinutes"
@@ -110,6 +116,8 @@ final class AppSettings: ObservableObject {
             Keys.commandAlertThreshold: 10.0,
             Keys.quietWhenFocused: true,
             Keys.shelfOnDrag: true,
+            Keys.showAgents: false,
+            Keys.showDeviceBatteries: false,
             Keys.showCalendar: true,
             Keys.calendarAlerts: true,
             Keys.calendarAlertMinutes: 5,
@@ -134,6 +142,8 @@ final class AppSettings: ObservableObject {
         commandAlertThreshold = defaults.double(forKey: Keys.commandAlertThreshold)
         quietWhenFocused = defaults.bool(forKey: Keys.quietWhenFocused)
         shelfOnDrag = defaults.bool(forKey: Keys.shelfOnDrag)
+        showAgents = defaults.bool(forKey: Keys.showAgents)
+        showDeviceBatteries = defaults.bool(forKey: Keys.showDeviceBatteries)
         showCalendar = defaults.bool(forKey: Keys.showCalendar)
         calendarAlerts = defaults.bool(forKey: Keys.calendarAlerts)
         calendarAlertMinutes = defaults.integer(forKey: Keys.calendarAlertMinutes)

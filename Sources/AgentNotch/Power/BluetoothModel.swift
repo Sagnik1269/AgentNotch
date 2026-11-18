@@ -12,8 +12,22 @@ final class BluetoothModel: NSObject, ObservableObject {
         let id: String          // address
         var name: String
         var icon: String
-        var battery: String?    // e.g. "L 80% · R 82% · Case 60%" or "75%"
-        var shortBattery: String? // the lowest earbud, or the single level: "80%"
+        var levels: [Level] = []
+
+        struct Level: Equatable, Identifiable {
+            var id: String { label }
+            let label: String   // "Left", "Right", "Case", or the device name
+            let icon: String
+            let percent: Int
+        }
+
+        /// "L 80% · R 82% · Case 60%" or "75%", for alerts.
+        var batteryText: String? {
+            guard !levels.isEmpty else { return nil }
+            if levels.count == 1 { return "\(levels[0].percent)%" }
+            return levels.map { "\($0.label == "Case" ? "Case" : String($0.label.prefix(1))) \($0.percent)%" }
+                .joined(separator: " · ")
+        }
     }
 
     @Published private(set) var connected: [Device] = []
@@ -21,6 +35,8 @@ final class BluetoothModel: NSObject, ObservableObject {
     private var connectNotification: IOBluetoothUserNotification?
     private var disconnectNotifications: [String: IOBluetoothUserNotification] = [:]
     private var startedAt = Date.distantPast
+    private var devices: [String: IOBluetoothDevice] = [:]
+    private var refreshTimer: Timer?
     /// AirPods and other multi-profile devices report several connects in a row; each new one
     /// restarts this per-device timer so only the last one announces.
     private var pendingAnnounce: [String: DispatchWorkItem] = [:]
@@ -36,6 +52,24 @@ final class BluetoothModel: NSObject, ObservableObject {
         startedAt = Date()
         connectNotification = IOBluetoothDevice.register(forConnectNotifications: self,
                                                          selector: #selector(deviceConnected(_:device:)))
+        // Devices that were already connected before we started.
+        for case let device as IOBluetoothDevice in IOBluetoothDevice.pairedDevices() ?? [] where device.isConnected() {
+            deviceConnected(nil, device: device)
+        }
+        // Battery levels drift; refresh them every minute while tracking.
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshLevels() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        refreshTimer = timer
+    }
+
+    private func refreshLevels() {
+        for (address, device) in devices where device.isConnected() {
+            guard var entry = connected.first(where: { $0.id == address }) else { continue }
+            entry.levels = Self.levels(for: device)
+            upsert(entry)
+        }
     }
 
     private func stop() {
@@ -43,11 +77,17 @@ final class BluetoothModel: NSObject, ObservableObject {
         connectNotification = nil
         disconnectNotifications.values.forEach { $0.unregister() }
         disconnectNotifications.removeAll()
+        pendingAnnounce.values.forEach { $0.cancel() }
+        pendingAnnounce.removeAll()
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        devices.removeAll()
         connected.removeAll()
     }
 
-    @objc private func deviceConnected(_ note: IOBluetoothUserNotification, device: IOBluetoothDevice) {
+    @objc private func deviceConnected(_ note: IOBluetoothUserNotification?, device: IOBluetoothDevice) {
         let address = device.addressString ?? UUID().uuidString
+        devices[address] = device
         disconnectNotifications[address]?.unregister()
         disconnectNotifications[address] = device.register(forDisconnectNotification: self,
                                                            selector: #selector(deviceDisconnected(_:device:)))
@@ -63,14 +103,13 @@ final class BluetoothModel: NSObject, ObservableObject {
                 guard let self else { return }
                 self.pendingAnnounce[address] = nil
                 guard device.isConnected(), let name = device.name, !name.isEmpty else { return }
-                let levels = Self.battery(for: device)
                 let entry = Device(id: address, name: name, icon: Self.icon(for: device),
-                                   battery: levels?.full, shortBattery: levels?.short)
+                                   levels: Self.levels(for: device))
                 self.upsert(entry)
                 guard announce, AppSettings.shared.bluetoothAlerts, self.shouldAnnounce(name, connected: true) else { return }
                 AlertCenter.shared.post(NotchAlert(icon: entry.icon, tint: .blue,
                                                    title: "\(name) connected",
-                                                   subtitle: entry.battery ?? "", tab: .home,
+                                                   subtitle: entry.batteryText ?? "", tab: .home,
                                                    key: "bluetooth:\(name)", duration: 2))
             }
         }
@@ -82,6 +121,7 @@ final class BluetoothModel: NSObject, ObservableObject {
         let address = device.addressString ?? ""
         disconnectNotifications.removeValue(forKey: address)?.unregister()
         pendingAnnounce.removeValue(forKey: address)?.cancel()
+        devices.removeValue(forKey: address)
         let known = connected.first { $0.id == address }?.name
         connected.removeAll { $0.id == address }
         guard AppSettings.shared.bluetoothAlerts, let name = known ?? device.name, !name.isEmpty,
@@ -137,23 +177,28 @@ final class BluetoothModel: NSObject, ObservableObject {
     /// AirPods-style per-bud levels via IOBluetoothDevice's battery properties (present on recent
     /// macOS, not in the public headers, so each is checked before use), else Apple HID devices'
     /// "BatteryPercent" from the IO registry.
-    private static func battery(for device: IOBluetoothDevice) -> (full: String, short: String)? {
+    private static func levels(for device: IOBluetoothDevice) -> [Device.Level] {
         func level(_ key: String) -> Int? {
             guard device.responds(to: NSSelectorFromString(key)),
                   let n = device.value(forKey: key) as? NSNumber, n.intValue > 0 else { return nil }
             return n.intValue
         }
-        let left = level("batteryPercentLeft"), right = level("batteryPercentRight"), box = level("batteryPercentCase")
-        let parts = [("L", left), ("R", right), ("Case", box)]
-            .compactMap { label, value in value.map { "\(label) \($0)%" } }
-        if !parts.isEmpty {
-            let buds = [left, right].compactMap { $0 }
-            let short = buds.min() ?? box!
-            return (parts.joined(separator: " · "), "\(short)%")
+        let pro = (device.name ?? "").lowercased().contains("pro")
+        let parts: [(String, String, Int?)] = [
+            ("Left", "airpod.left", level("batteryPercentLeft")),
+            ("Right", "airpod.right", level("batteryPercentRight")),
+            ("Case", pro ? "airpodspro.chargingcase.wireless" : "airpods.chargingcase", level("batteryPercentCase")),
+        ]
+        let buds = parts.compactMap { label, icon, value in value.map { Device.Level(label: label, icon: icon, percent: $0) } }
+        if !buds.isEmpty { return buds }
+        let name = device.name ?? "Device"
+        if let single = level("batteryPercentSingle") {
+            return [Device.Level(label: name, icon: icon(for: device), percent: single)]
         }
-        if let single = level("batteryPercentSingle") { return ("\(single)%", "\(single)%") }
-        if let name = device.name, let hid = hidBattery(named: name) { return ("\(hid)%", "\(hid)%") }
-        return nil
+        if let hid = hidBattery(named: name) {
+            return [Device.Level(label: name, icon: icon(for: device), percent: hid)]
+        }
+        return []
     }
 
     private static func hidBattery(named name: String) -> Int? {

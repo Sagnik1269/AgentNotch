@@ -55,7 +55,9 @@ enum ClosedActivity: Equatable {
         if let state = hud.state { return .hud(state) }
         if let pop = StatusPopModel.shared.current { return .status(pop) }
         if let alert = alerts.current { return .alert(alert) }
-        let waiting = agents.waitingCount, working = agents.workingCount
+        let showAgents = settings.showAgents
+        let waiting = showAgents ? agents.waitingCount : 0
+        let working = showAgents ? agents.workingCount : 0
         if waiting > 0 { return .agents(waiting: waiting, working: working) }
         if settings.showNowPlayingActivity, media.hasMedia, media.isPlaying {
             if settings.showTrackPeek && media.isPeeking { return .nowPlaying(row: .peek) }

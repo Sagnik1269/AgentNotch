@@ -12,6 +12,7 @@ struct SettingsView: View {
 
     @ViewBuilder private var developerSection: some View {
         Section {
+            Toggle("Show Claude Code sessions", isOn: $settings.showAgents)
             IntegrationRow(
                 title: "Claude Code",
                 detail: "Adds AgentNotch hooks to ~/.claude/settings.json next to your existing hooks. A backup is saved first. Applies to new sessions.",
@@ -206,6 +207,7 @@ struct SettingsView: View {
             Section {
                 Toggle("Show charging status when plugging in or unplugging", isOn: $settings.batteryPops)
                 Toggle("Low battery alerts (20% and 10%)", isOn: $settings.lowBatteryAlerts)
+                Toggle("Show Bluetooth device batteries on Home", isOn: $settings.showDeviceBatteries)
                 Toggle("Bluetooth device alerts", isOn: $settings.bluetoothAlerts)
             } header: {
                 Text("Battery & devices")

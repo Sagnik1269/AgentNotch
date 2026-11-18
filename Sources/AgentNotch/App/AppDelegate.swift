@@ -20,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         BatteryModel.shared.start()
         CalendarModel.shared.start()       // no-op until calendar access is granted
         settings.$bluetoothAlerts
+            .combineLatest(settings.$showDeviceBatteries)
+            .map { $0 || $1 }
+            .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { BluetoothModel.shared.setEnabled($0) }
             .store(in: &cancellables)
