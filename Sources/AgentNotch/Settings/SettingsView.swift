@@ -188,7 +188,6 @@ struct SettingsView: View {
         // Fixed width; height comes from the window, and the grouped form scrolls inside it.
         .frame(width: 460)
         .frame(minHeight: 300, maxHeight: .infinity)
-        .fixedSize(horizontal: false, vertical: true)
         .onAppear { settings.refreshLaunchAtLogin() }
     }
 }
