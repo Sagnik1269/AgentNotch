@@ -10,6 +10,7 @@ struct NotchView: View {
     @ObservedObject private var alerts = AlertCenter.shared
     @ObservedObject private var agents = AgentsModel.shared
     @ObservedObject private var lyrics = LyricsModel.shared
+    @ObservedObject private var statusPops = StatusPopModel.shared
 
     var body: some View {
         let activity = ClosedActivity.current(settings: settings, hud: hud, media: media,
@@ -105,7 +106,10 @@ struct ClosedActivityView: View {
     }
 
     private var wingWidth: CGFloat {
-        if case .hud = activity { return vm.hudWingWidth }
+        switch activity {
+        case .hud, .status: return vm.hudWingWidth
+        default: break
+        }
         return vm.mediaWingWidth
     }
 
@@ -118,6 +122,13 @@ struct ClosedActivityView: View {
             Image(systemName: state.icon)
                 .font(.system(size: 13, weight: .semibold))
                 .contentTransition(.symbolEffect(.replace))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, vm.hudEdgeInset)
+        case .status(let pop):
+            Image(systemName: pop.icon)
+                .font(.system(size: 14, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(pop.tint.color)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, vm.hudEdgeInset)
         case .nowPlaying:
@@ -149,6 +160,13 @@ struct ClosedActivityView: View {
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, vm.hudEdgeInset)
+        case .status(let pop):
+            Text(pop.text)
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(pop.tint.color)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, vm.hudEdgeInset)
         case .nowPlaying:
             Group {
                 if settings.showVisualizer {
@@ -200,6 +218,7 @@ struct ClosedActivityView: View {
 struct LyricLineRow: View {
     let accent: Color
     @ObservedObject private var lyrics = LyricsModel.shared
+    @ObservedObject private var statusPops = StatusPopModel.shared
 
     var body: some View {
         let line = lyrics.currentLine

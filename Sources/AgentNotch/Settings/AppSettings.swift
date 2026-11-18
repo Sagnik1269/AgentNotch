@@ -51,6 +51,17 @@ final class AppSettings: ObservableObject {
     /// Skip alerts when the app that produced them (your terminal, Claude) is frontmost.
     @Published var quietWhenFocused: Bool { didSet { defaults.set(quietWhenFocused, forKey: Keys.quietWhenFocused) } }
 
+    // Shelf, calendar, power
+    @Published var shelfOnDrag: Bool { didSet { defaults.set(shelfOnDrag, forKey: Keys.shelfOnDrag) } }
+    /// Show events (once calendar access is granted).
+    @Published var showCalendar: Bool { didSet { defaults.set(showCalendar, forKey: Keys.showCalendar) } }
+    @Published var calendarAlerts: Bool { didSet { defaults.set(calendarAlerts, forKey: Keys.calendarAlerts) } }
+    @Published var calendarAlertMinutes: Int { didSet { defaults.set(calendarAlertMinutes, forKey: Keys.calendarAlertMinutes) } }
+    @Published var batteryPops: Bool { didSet { defaults.set(batteryPops, forKey: Keys.batteryPops) } }
+    @Published var lowBatteryAlerts: Bool { didSet { defaults.set(lowBatteryAlerts, forKey: Keys.lowBatteryAlerts) } }
+    /// Off by default: macOS asks for Bluetooth permission the first time it's used.
+    @Published var bluetoothAlerts: Bool { didSet { defaults.set(bluetoothAlerts, forKey: Keys.bluetoothAlerts) } }
+
     @Published private(set) var launchAtLogin: Bool = false
     @Published private(set) var launchAtLoginError: String?
 
@@ -71,6 +82,13 @@ final class AppSettings: ObservableObject {
         static let replaceSystemHUD = "replaceSystemHUD"
         static let commandAlertThreshold = "commandAlertThreshold"
         static let quietWhenFocused = "quietWhenFocused"
+        static let shelfOnDrag = "shelfOnDrag"
+        static let showCalendar = "showCalendar"
+        static let calendarAlerts = "calendarAlerts"
+        static let calendarAlertMinutes = "calendarAlertMinutes"
+        static let batteryPops = "batteryPops"
+        static let lowBatteryAlerts = "lowBatteryAlerts"
+        static let bluetoothAlerts = "bluetoothAlerts"
     }
 
     private init() {
@@ -91,6 +109,13 @@ final class AppSettings: ObservableObject {
             Keys.replaceSystemHUD: true,
             Keys.commandAlertThreshold: 10.0,
             Keys.quietWhenFocused: true,
+            Keys.shelfOnDrag: true,
+            Keys.showCalendar: true,
+            Keys.calendarAlerts: true,
+            Keys.calendarAlertMinutes: 5,
+            Keys.batteryPops: true,
+            Keys.lowBatteryAlerts: true,
+            Keys.bluetoothAlerts: false,
         ])
         hoverToOpen = defaults.bool(forKey: Keys.hoverToOpen)
         hoverDelay = defaults.double(forKey: Keys.hoverDelay)
@@ -108,6 +133,13 @@ final class AppSettings: ObservableObject {
         replaceSystemHUD = defaults.bool(forKey: Keys.replaceSystemHUD)
         commandAlertThreshold = defaults.double(forKey: Keys.commandAlertThreshold)
         quietWhenFocused = defaults.bool(forKey: Keys.quietWhenFocused)
+        shelfOnDrag = defaults.bool(forKey: Keys.shelfOnDrag)
+        showCalendar = defaults.bool(forKey: Keys.showCalendar)
+        calendarAlerts = defaults.bool(forKey: Keys.calendarAlerts)
+        calendarAlertMinutes = defaults.integer(forKey: Keys.calendarAlertMinutes)
+        batteryPops = defaults.bool(forKey: Keys.batteryPops)
+        lowBatteryAlerts = defaults.bool(forKey: Keys.lowBatteryAlerts)
+        bluetoothAlerts = defaults.bool(forKey: Keys.bluetoothAlerts)
         refreshLaunchAtLogin()
     }
 

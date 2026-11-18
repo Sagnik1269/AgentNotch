@@ -79,6 +79,19 @@ line starts rather than polled.
   Punjabi/Gurmukhi are converted Hinglish-style with silent-"a" rules ("तुम ही हो" → "Tum hi ho"),
   and other scripts use the system transliterator. This is transliteration, not translation.
 
+## Shelf, calendar, battery
+
+- **Shelf:** drag files (or images, text, links) onto the notch; it opens straight to the Shelf. Files are
+  referenced by bookmark, not copied, and survive restarts; dropped images/text are saved under
+  `~/Library/Application Support/AgentNotch/Shelf`. Drag items back out, double-click to open,
+  right-click for Show in Finder / AirDrop / Copy / Remove.
+- **Calendar:** EventKit, only after you click *Show your calendar* (macOS asks). Today's and tomorrow's
+  events appear on Home; an alert drops from the notch before each one (1–15 min, configurable).
+  Meet/Zoom/Teams/Webex/FaceTime links get a Join button.
+- **Battery:** IOKit power-source notifications (no polling): a pop on plug/unplug, alerts at 20% and 10%.
+- **Bluetooth:** off by default (macOS asks for Bluetooth permission). Connect/disconnect alerts with
+  battery levels when the device reports them (AirPods per bud + case, Apple keyboards/mice).
+
 ## Layout
 
 ```
@@ -96,7 +109,8 @@ Sources/AgentNotch/
 2. ✅ Media (now playing, controls, scrubber, live activity, track peek) + volume/brightness HUD replacement
 3. ✅ Dev layer: Claude Code sessions, command-finished alerts, local event API, ports, CI
    - ✅ Live lyrics (LRCLIB, time-synced, opt-in)
-4. Shelf, calendar, battery/Bluetooth
+4. ✅ Shelf (drag files onto the notch, drag out, AirDrop/copy), calendar (agenda on Home, alerts before
+   events, Join for video calls), battery (charging pop, low-battery alerts), Bluetooth connect alerts
 5. Clipboard, notes, timers, mirror, polish
 
 Uses private SkyLight calls (fullscreen detection, later MediaRemote), so it's distributed outside the Mac App Store.

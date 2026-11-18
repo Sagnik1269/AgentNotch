@@ -7,6 +7,8 @@ struct SettingsView: View {
     @ObservedObject var spectrum = AudioSpectrumModel.shared
     @ObservedObject var installer = IntegrationInstaller.shared
     @ObservedObject var ci = CIModel.shared
+    @ObservedObject var shelf = ShelfModel.shared
+    @ObservedObject var calendar = CalendarModel.shared
 
     @ViewBuilder private var developerSection: some View {
         Section {
@@ -160,6 +162,56 @@ struct SettingsView: View {
                 Text("Volume and built-in display brightness keys show in the notch. Option+Shift gives finer steps. Outputs without software volume (some HDMI/DisplayPort monitors) and keyboard backlight keep the system HUD.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Shelf") {
+                Toggle("Open the shelf when dragging files to the notch", isOn: $settings.shelfOnDrag)
+                LabeledContent("Items on the shelf") {
+                    HStack {
+                        Text("\(shelf.items.count)").foregroundStyle(.secondary)
+                        Button("Clear") { shelf.clear() }.disabled(shelf.items.isEmpty)
+                    }
+                }
+            }
+
+            Section {
+                Toggle("Show upcoming events on Home", isOn: $settings.showCalendar)
+                LabeledContent("Calendar access") {
+                    switch calendar.access {
+                    case .granted:
+                        Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    case .notDetermined:
+                        Button("Allow…") { calendar.requestAccess() }
+                    case .denied:
+                        Button("Open Privacy Settings…") { calendar.openPrivacySettings() }
+                    }
+                }
+                Toggle("Alert before events start", isOn: $settings.calendarAlerts)
+                    .disabled(!settings.showCalendar)
+                if settings.calendarAlerts && settings.showCalendar {
+                    Picker("Alert", selection: $settings.calendarAlertMinutes) {
+                        Text("1 minute before").tag(1)
+                        Text("5 minutes before").tag(5)
+                        Text("10 minutes before").tag(10)
+                        Text("15 minutes before").tag(15)
+                    }
+                }
+            } header: {
+                Text("Calendar")
+            } footer: {
+                Text("Reads the calendars already set up in macOS (iCloud, Google, Exchange…). Events stay on this Mac. Video-call links (Meet, Zoom, Teams…) get a Join button.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Show charging status when plugging in or unplugging", isOn: $settings.batteryPops)
+                Toggle("Low battery alerts (20% and 10%)", isOn: $settings.lowBatteryAlerts)
+                Toggle("Bluetooth device alerts", isOn: $settings.bluetoothAlerts)
+            } header: {
+                Text("Battery & devices")
+            } footer: {
+                Text("Bluetooth alerts show when headphones, keyboards and other devices connect, with battery levels when the device reports them. macOS asks for Bluetooth permission the first time.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             developerSection

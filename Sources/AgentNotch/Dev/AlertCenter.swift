@@ -22,6 +22,8 @@ struct NotchAlert: Equatable, Identifiable {
     var tint: Tint
     var title: String
     var subtitle: String = ""
+    /// Tab opened when you click the alert.
+    var tab: NotchTab = .dev
 }
 
 @MainActor
