@@ -185,7 +185,9 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        // Fixed width; height comes from the window, and the grouped form scrolls inside it.
         .frame(width: 460)
+        .frame(minHeight: 300, maxHeight: .infinity)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear { settings.refreshLaunchAtLogin() }
     }
@@ -222,14 +224,31 @@ final class SettingsWindowController {
     func show() {
         if window == nil {
             let hosting = NSHostingController(rootView: SettingsView())
+            // Don't let SwiftUI grow the window to the form's full height (taller than most screens).
+            hosting.sizingOptions = []
             let window = NSWindow(contentViewController: hosting)
             window.title = "AgentNotch Settings"
-            window.styleMask = [.titled, .closable, .miniaturizable]
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.isReleasedWhenClosed = false
+            window.contentMinSize = NSSize(width: 460, height: 300)
+            window.contentMaxSize = NSSize(width: 460, height: CGFloat.greatestFiniteMagnitude)
+            window.setContentSize(Self.defaultSize(on: NSScreen.main))
             window.center()
             self.window = window
         }
+        if let window, let visible = (window.screen ?? NSScreen.main)?.visibleFrame,
+           !visible.contains(window.frame) {
+            // Opened before on a bigger display, or the old oversized frame: bring it back on screen.
+            window.setContentSize(Self.defaultSize(on: window.screen ?? NSScreen.main))
+            window.center()
+        }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// 600 pt tall, or less on short screens, always leaving room for the title bar.
+    private static func defaultSize(on screen: NSScreen?) -> NSSize {
+        let available = (screen?.visibleFrame.height ?? 800) - 80
+        return NSSize(width: 460, height: max(300, min(600, available)))
     }
 }
