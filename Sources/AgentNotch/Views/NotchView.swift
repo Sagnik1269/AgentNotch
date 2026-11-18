@@ -10,6 +10,7 @@ struct NotchView: View {
     @ObservedObject private var alerts = AlertCenter.shared
     @ObservedObject private var agents = AgentsModel.shared
     @ObservedObject private var lyrics = LyricsModel.shared
+    @ObservedObject private var statusPops = StatusPopModel.shared
 
     var body: some View {
         let activity = ClosedActivity.current(settings: settings, hud: hud, media: media,
@@ -34,7 +35,7 @@ struct NotchView: View {
             } else if activity != .idle {
                 ClosedActivityView(vm: vm, activity: activity)
                     .padding(.horizontal, vm.closedTopRadius)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.18)))
+                    .transition(.opacity)
             }
         }
         .frame(width: size.width, height: size.height)
@@ -47,7 +48,11 @@ struct NotchView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: vm.isOpen)
-        .animation(.spring(response: 0.38, dampingFraction: 0.8), value: activity.layoutKey)
+        // Alerts and status pops animate with their own curve (slow in, quick out) set where they're
+        // posted; everything else (HUD, now playing, agents) keeps the spring.
+        .transaction(value: activity.layoutKey) { t in
+            if t.animation == nil { t.animation = .spring(response: 0.38, dampingFraction: 0.8) }
+        }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: vm.isHovering)
         .environment(\.colorScheme, .dark)
     }
@@ -105,7 +110,10 @@ struct ClosedActivityView: View {
     }
 
     private var wingWidth: CGFloat {
-        if case .hud = activity { return vm.hudWingWidth }
+        switch activity {
+        case .hud, .status: return vm.hudWingWidth
+        default: break
+        }
         return vm.mediaWingWidth
     }
 
@@ -118,6 +126,13 @@ struct ClosedActivityView: View {
             Image(systemName: state.icon)
                 .font(.system(size: 13, weight: .semibold))
                 .contentTransition(.symbolEffect(.replace))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, vm.hudEdgeInset)
+        case .status(let pop):
+            Image(systemName: pop.icon)
+                .font(.system(size: 14, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(pop.tint.color)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, vm.hudEdgeInset)
         case .nowPlaying:
@@ -149,6 +164,13 @@ struct ClosedActivityView: View {
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, vm.hudEdgeInset)
+        case .status(let pop):
+            Text(pop.text)
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(pop.tint.color)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, vm.hudEdgeInset)
         case .nowPlaying:
             Group {
                 if settings.showVisualizer {
@@ -200,6 +222,7 @@ struct ClosedActivityView: View {
 struct LyricLineRow: View {
     let accent: Color
     @ObservedObject private var lyrics = LyricsModel.shared
+    @ObservedObject private var statusPops = StatusPopModel.shared
 
     var body: some View {
         let line = lyrics.currentLine

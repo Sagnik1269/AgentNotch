@@ -13,8 +13,7 @@ struct ExpandedNotchView: View {
                 switch vm.selectedTab {
                 case .home: HomeTabView()
                 case .media: MediaTabView()
-                case .shelf: PlaceholderTabView(icon: "tray.full.fill", title: "Shelf",
-                                                detail: "Drag files here to hold them. Coming in phase 4.")
+                case .shelf: ShelfTabView()
                 case .dev: DevTabView(onOpenSettings: { vm.onOpenSettings?() })
                 }
             }

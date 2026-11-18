@@ -110,6 +110,7 @@ final class AgentsModel: ObservableObject {
     }
 
     private func alert(for session: AgentSession, finished: Bool) {
+        guard AppSettings.shared.showAgents else { return }
         if AppSettings.shared.quietWhenFocused && AlertCenter.isFrontmost(bundleID: session.appBundleID) { return }
         if finished {
             AlertCenter.shared.post(NotchAlert(

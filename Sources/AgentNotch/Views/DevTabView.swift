@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Dev tab: Claude Code sessions, finished commands, listening ports and CI.
+/// Dev tab: finished commands, listening ports, CI, and (if enabled) Claude Code sessions.
 struct DevTabView: View {
     enum Section: String, CaseIterable, Identifiable {
         case agents = "Agents", commands = "Commands", ports = "Ports", ci = "CI"
@@ -8,15 +8,20 @@ struct DevTabView: View {
     }
 
     var onOpenSettings: () -> Void
-    @State private var section: Section = .agents
+    @State private var section: Section = .commands
     @ObservedObject private var agents = AgentsModel.shared
+    @ObservedObject private var settings = AppSettings.shared
+
+    private var sections: [Section] {
+        settings.showAgents ? Section.allCases : Section.allCases.filter { $0 != .agents }
+    }
     @ObservedObject private var commands = CommandsModel.shared
     @ObservedObject private var ci = CIModel.shared
 
     var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 4) {
-                ForEach(Section.allCases) { item in
+                ForEach(sections) { item in
                     SectionChip(title: item.rawValue, badge: badge(for: item), isSelected: section == item) {
                         section = item
                     }
@@ -36,7 +41,11 @@ struct DevTabView: View {
         }
         .onAppear {
             // Land on whatever needs attention.
-            if agents.waitingCount > 0 || agents.workingCount > 0 { section = .agents }
+            if settings.showAgents, agents.waitingCount > 0 || agents.workingCount > 0 {
+                section = .agents
+            } else if !sections.contains(section) {
+                section = .commands
+            }
         }
     }
 

@@ -22,6 +22,12 @@
     <true/>
     <key>NSAudioCaptureUsageDescription</key>
     <string>AgentNotch listens to your Mac's audio output to animate the music visualizer. Audio is analyzed live in memory and never recorded or stored.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>AgentNotch shows your upcoming events in the notch and reminds you a few minutes before they start. Events never leave your Mac.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>AgentNotch shows your upcoming events in the notch and reminds you a few minutes before they start. Events never leave your Mac.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>AgentNotch shows when your Bluetooth devices connect, with their battery levels.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

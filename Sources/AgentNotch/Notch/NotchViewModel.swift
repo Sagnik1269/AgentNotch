@@ -69,7 +69,7 @@ final class NotchViewModel: ObservableObject {
         switch activity {
         case .idle:
             return CGSize(width: base, height: notchSize.height)
-        case .hud:
+        case .hud, .status:
             return CGSize(width: base + hudWingWidth * 2, height: notchSize.height)
         case .nowPlaying(let row):
             let width = base + mediaWingWidth * 2

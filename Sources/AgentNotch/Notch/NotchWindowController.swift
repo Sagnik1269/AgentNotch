@@ -61,8 +61,8 @@ final class NotchWindowController {
         pendingHoverWork?.cancel()
         // Opening on a dev alert or agent status jumps straight to the details.
         let activity = ClosedActivity.current()
-        if activity.opensDevTab {
-            viewModel.selectedTab = .dev
+        if let tab = activity.opensTab {
+            viewModel.selectedTab = tab
             if case .alert = activity { AlertCenter.shared.dismiss() }
         }
         if settings.haptics {
@@ -99,6 +99,11 @@ final class NotchWindowController {
     func handleMouseMoved(_ point: NSPoint) {
         guard !isHiddenForFullscreen else { return }
         let inside = hitRect().contains(point)
+        // Dragging files onto the notch opens the shelf right away (no hover delay).
+        if inside, settings.shelfOnDrag, FileDragWatcher.isDraggingFiles {
+            if viewModel.selectedTab != .shelf { viewModel.selectedTab = .shelf }
+            if !viewModel.isOpen { open() }
+        }
         if panel.ignoresMouseEvents == inside {
             panel.ignoresMouseEvents = !inside
         }

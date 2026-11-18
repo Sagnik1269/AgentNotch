@@ -17,6 +17,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeSettings()
         NowPlayingModel.shared.start()
         LyricsModel.shared.start()
+        BatteryModel.shared.start()
+        CalendarModel.shared.start()       // no-op until calendar access is granted
+        settings.$bluetoothAlerts
+            .combineLatest(settings.$showDeviceBatteries)
+            .map { $0 || $1 }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink {
+                BluetoothModel.shared.setEnabled($0)
+                BLEBatteryReader.shared.setEnabled($0)
+            }
+            .store(in: &cancellables)
         setUpHUD()
         setUpVisualizer()
         startDevLayer()
@@ -112,6 +124,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func mouseDown() {
         let point = NSEvent.mouseLocation
         controllers.values.forEach { $0.handleMouseDown(point) }
+        FileDragWatcher.mouseDown()
+        watchHeldButton()
+    }
+
+    private var heldButtonTimer: Timer?
+
+    /// Drag-and-drop sessions don't reliably reach global mouse monitors, so while the button is held
+    /// (a possible file drag) the cursor is checked at 20 Hz. Stops the moment the button is released.
+    private func watchHeldButton() {
+        guard heldButtonTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self else { return timer.invalidate() }
+                if NSEvent.pressedMouseButtons & 1 == 0 {
+                    timer.invalidate()
+                    self.heldButtonTimer = nil
+                }
+                self.mouseMoved()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        heldButtonTimer = timer
     }
 
     // MARK: - System events

@@ -2,10 +2,11 @@ import Foundation
 
 /// What the closed notch is showing besides plain black.
 ///
-/// Priority: HUD > alert > an agent waiting for you > now playing > agents working > idle.
+/// Priority: HUD > status pop (battery) > alert > an agent waiting for you > now playing > agents working > idle.
 enum ClosedActivity: Equatable {
     case idle
     case hud(HUDState)
+    case status(StatusPop)
     case alert(NotchAlert)
     case agents(waiting: Int, working: Int)
     case nowPlaying(row: NowPlayingRow)
@@ -30,14 +31,16 @@ enum ClosedActivity: Equatable {
             }
         case .alert: 4
         case .agents: 5
+        case .status: 7
         }
     }
 
-    /// Activities that are about dev work; clicking them opens the Dev tab.
-    var opensDevTab: Bool {
+    /// Tab to open when the closed notch is clicked during this activity (nil = keep the current tab).
+    var opensTab: NotchTab? {
         switch self {
-        case .alert, .agents: true
-        default: false
+        case .alert(let alert): alert.tab
+        case .agents: .dev
+        default: nil
         }
     }
 
@@ -50,8 +53,11 @@ enum ClosedActivity: Equatable {
     static func current(settings: AppSettings, hud: HUDModel, media: NowPlayingModel,
                         alerts: AlertCenter, agents: AgentsModel, lyrics: LyricsModel) -> ClosedActivity {
         if let state = hud.state { return .hud(state) }
+        if let pop = StatusPopModel.shared.current { return .status(pop) }
         if let alert = alerts.current { return .alert(alert) }
-        let waiting = agents.waitingCount, working = agents.workingCount
+        let showAgents = settings.showAgents
+        let waiting = showAgents ? agents.waitingCount : 0
+        let working = showAgents ? agents.workingCount : 0
         if waiting > 0 { return .agents(waiting: waiting, working: working) }
         if settings.showNowPlayingActivity, media.hasMedia, media.isPlaying {
             if settings.showTrackPeek && media.isPeeking { return .nowPlaying(row: .peek) }

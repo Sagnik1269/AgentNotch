@@ -22,6 +22,18 @@ struct NotchAlert: Equatable, Identifiable {
     var tint: Tint
     var title: String
     var subtitle: String = ""
+    /// Tab opened when you click the alert.
+    var tab: NotchTab = .dev
+    /// Alerts with the same key replace each other instead of queueing (e.g. one device's status).
+    var key: String?
+    /// Seconds fully visible; nil = default (4.5 s, 3 s when others are waiting).
+    var duration: Double?
+}
+
+extension Animation {
+    /// Popups ease in gently (slow start) and leave quickly.
+    static let notchPopIn = Animation.timingCurve(0.5, 0, 0.3, 1, duration: 0.55)
+    static let notchPopOut = Animation.easeIn(duration: 0.2)
 }
 
 @MainActor
@@ -34,6 +46,17 @@ final class AlertCenter: ObservableObject {
 
     /// Shows the alert now, or after the current one (at most 3 waiting; older ones are dropped).
     func post(_ alert: NotchAlert) {
+        if let key = alert.key {
+            // Same subject: update what's showing (and restart its timer) or what's waiting.
+            if current?.key == key {
+                show(alert, animated: false)
+                return
+            }
+            if let i = queue.firstIndex(where: { $0.key == key }) {
+                queue[i] = alert
+                return
+            }
+        }
         if current == nil {
             show(alert)
         } else {
@@ -44,7 +67,7 @@ final class AlertCenter: ObservableObject {
 
     func dismiss() {
         hideTask?.cancel()
-        current = nil
+        withAnimation(.notchPopOut) { current = nil }
         if !queue.isEmpty {
             let next = queue.removeFirst()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
@@ -53,14 +76,20 @@ final class AlertCenter: ObservableObject {
         }
     }
 
-    private func show(_ alert: NotchAlert) {
-        current = alert
+    private func show(_ alert: NotchAlert, animated: Bool = true) {
+        if animated {
+            withAnimation(.notchPopIn) { current = alert }
+        } else {
+            current = alert
+        }
         hideTask?.cancel()
         let task = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated { self?.dismiss() }
         }
         hideTask = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + (queue.isEmpty ? 4.5 : 3), execute: task)
+        // Visible time starts once the slide-in has finished.
+        let visible = alert.duration ?? (queue.isEmpty ? 4.5 : 3)
+        DispatchQueue.main.asyncAfter(deadline: .now() + visible + (animated ? 0.55 : 0), execute: task)
     }
 
     /// True when the app that produced an event is the one you're looking at.
