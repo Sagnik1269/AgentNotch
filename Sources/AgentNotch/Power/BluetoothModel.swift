@@ -20,6 +20,11 @@ final class BluetoothModel: NSObject, ObservableObject {
     private var connectNotification: IOBluetoothUserNotification?
     private var disconnectNotifications: [String: IOBluetoothUserNotification] = [:]
     private var startedAt = Date.distantPast
+    /// AirPods and other multi-profile devices report several connects in a row; each new one
+    /// restarts this per-device timer so only the last one announces.
+    private var pendingAnnounce: [String: DispatchWorkItem] = [:]
+    /// Last connect/disconnect announcement per device name, to drop link flapping.
+    private var lastAnnounced: [String: (connected: Bool, at: Date)] = [:]
 
     func setEnabled(_ enabled: Bool) {
         if enabled { start() } else { stop() }
@@ -47,30 +52,51 @@ final class BluetoothModel: NSObject, ObservableObject {
                                                            selector: #selector(deviceDisconnected(_:device:)))
         // Devices already connected at start are reported immediately: list them, don't announce.
         let announce = Date().timeIntervalSince(startedAt) > 3
-        var entry = Device(id: address, name: device.name ?? "Bluetooth device", icon: Self.icon(for: device))
-        upsert(entry)
-        // Battery levels are filled in a moment after the link comes up.
-        DispatchQueue.main.asyncAfter(deadline: .now() + (announce ? 2.5 : 0.5)) { [weak self] in
+        if let name = device.name {
+            upsert(Device(id: address, name: name, icon: Self.icon(for: device)))
+        }
+        // Wait for the burst of connects to settle; by then the name and battery levels are known.
+        pendingAnnounce[address]?.cancel()
+        let work = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                entry.battery = Self.battery(for: device)
+                self.pendingAnnounce[address] = nil
+                guard device.isConnected(), let name = device.name, !name.isEmpty else { return }
+                let entry = Device(id: address, name: name, icon: Self.icon(for: device),
+                                   battery: Self.battery(for: device))
                 self.upsert(entry)
-                guard announce, AppSettings.shared.bluetoothAlerts else { return }
+                guard announce, AppSettings.shared.bluetoothAlerts, self.shouldAnnounce(name, connected: true) else { return }
                 AlertCenter.shared.post(NotchAlert(icon: entry.icon, tint: .blue,
-                                                   title: "\(entry.name) connected",
-                                                   subtitle: entry.battery ?? "", tab: .home))
+                                                   title: "\(name) connected",
+                                                   subtitle: entry.battery ?? "", tab: .home,
+                                                   key: "bluetooth:\(name)", duration: 2))
             }
         }
+        pendingAnnounce[address] = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + (announce ? 2.5 : 0.5), execute: work)
     }
 
     @objc private func deviceDisconnected(_ note: IOBluetoothUserNotification, device: IOBluetoothDevice) {
         let address = device.addressString ?? ""
         disconnectNotifications.removeValue(forKey: address)?.unregister()
-        let name = connected.first { $0.id == address }?.name ?? device.name ?? "Bluetooth device"
+        pendingAnnounce.removeValue(forKey: address)?.cancel()
+        let known = connected.first { $0.id == address }?.name
         connected.removeAll { $0.id == address }
-        guard AppSettings.shared.bluetoothAlerts else { return }
+        guard AppSettings.shared.bluetoothAlerts, let name = known ?? device.name, !name.isEmpty,
+              shouldAnnounce(name, connected: false) else { return }
         AlertCenter.shared.post(NotchAlert(icon: Self.icon(for: device), tint: .white,
-                                           title: "\(name) disconnected", tab: .home))
+                                           title: "\(name) disconnected", tab: .home,
+                                           key: "bluetooth:\(name)", duration: 2))
+    }
+
+    /// One announcement per state change per device; repeats within 20 s are dropped.
+    private func shouldAnnounce(_ name: String, connected: Bool) -> Bool {
+        if let last = lastAnnounced[name], last.connected == connected,
+           Date().timeIntervalSince(last.at) < 20 {
+            return false
+        }
+        lastAnnounced[name] = (connected, Date())
+        return true
     }
 
     private func upsert(_ device: Device) {

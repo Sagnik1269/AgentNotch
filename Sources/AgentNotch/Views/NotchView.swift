@@ -35,7 +35,7 @@ struct NotchView: View {
             } else if activity != .idle {
                 ClosedActivityView(vm: vm, activity: activity)
                     .padding(.horizontal, vm.closedTopRadius)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.18)))
+                    .transition(.opacity)
             }
         }
         .frame(width: size.width, height: size.height)
@@ -48,7 +48,11 @@ struct NotchView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: vm.isOpen)
-        .animation(.spring(response: 0.38, dampingFraction: 0.8), value: activity.layoutKey)
+        // Alerts and status pops animate with their own curve (slow in, quick out) set where they're
+        // posted; everything else (HUD, now playing, agents) keeps the spring.
+        .transaction(value: activity.layoutKey) { t in
+            if t.animation == nil { t.animation = .spring(response: 0.38, dampingFraction: 0.8) }
+        }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: vm.isHovering)
         .environment(\.colorScheme, .dark)
     }

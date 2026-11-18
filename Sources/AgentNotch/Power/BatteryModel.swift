@@ -1,5 +1,6 @@
 import Foundation
 import IOKit.ps
+import notify
 
 /// Internal battery state from IOKit power sources, with change notifications (no polling).
 @MainActor
@@ -15,6 +16,8 @@ final class BatteryModel: ObservableObject {
     @Published private(set) var timeRemaining: Int?
 
     private var runLoopSource: CFRunLoopSource?
+    private var notifyTokens: [Int32] = []
+    private var pollTimer: Timer?
     private var lowAlertedAt: Int?
     private var started = false
 
@@ -28,10 +31,32 @@ final class BatteryModel: ObservableObject {
         if let source = IOPSNotificationCreateRunLoopSource({ ctx in
             guard let ctx else { return }
             let model = Unmanaged<BatteryModel>.fromOpaque(ctx).takeUnretainedValue()
-            MainActor.assumeIsolated { model.read(announce: true) }
+            MainActor.assumeIsolated { model.powerChanged() }
         }, context)?.takeRetainedValue() {
-            CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
             runLoopSource = source
+        }
+        // The dedicated "power source changed" (AC ↔ battery) signal, adapter attach, and any change.
+        for key in [kIOPSNotifyPowerSource, kIOPSNotifyAttach, kIOPSNotifyAnyPowerSource] {
+            var token: Int32 = 0
+            let status = notify_register_dispatch(key, &token, .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.powerChanged() }
+            }
+            if status == NOTIFY_STATUS_OK { notifyTokens.append(token) }
+        }
+        // Safety net in case a notification is missed (cheap: one IOKit read every 20 s).
+        let timer = Timer(timeInterval: 20, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.read(announce: true) }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        pollTimer = timer
+    }
+
+    /// The adapter state can lag the notification slightly, so read now and again shortly after.
+    private func powerChanged() {
+        read(announce: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            MainActor.assumeIsolated { self?.read(announce: true) }
         }
     }
 
@@ -71,6 +96,9 @@ final class BatteryModel: ObservableObject {
 
         guard announce, wasKnown else { return }
         let settings = AppSettings.shared
+        if onAC != wasOnAC {
+            NSLog("AgentNotch: power source changed: \(onAC ? "AC" : "battery") at \(percent)%")
+        }
         if onAC != wasOnAC, settings.batteryPops {
             StatusPopModel.shared.show(StatusPop(
                 icon: onAC ? "battery.100percent.bolt" : Self.icon(percent: percent, charging: false),
